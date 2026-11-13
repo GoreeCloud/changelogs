@@ -80,10 +80,13 @@ def main(argv=None):
             print(json.dumps(verify_backup(args.source), indent=2))
             return 0
         if args.command == "restore" and args.dry_run:
+            if args.recovery_backup:
+                raise ValueError("--dry-run cannot be combined with --recovery-backup")
             result = verify_backup(args.source)
             selected_db = Path(args.db).expanduser() if args.db else default_path()
-            if Path(args.source).expanduser().resolve() == selected_db.resolve():
-                raise ValueError("Source and destination databases must differ")
+            source_path = Path(args.source).expanduser()
+            if source_path.resolve() == selected_db.resolve() or (selected_db.is_file() and source_path.samefile(selected_db)):
+                raise ValueError("Source and destination databases must differ (including hard links)")
             print(json.dumps({"dry_run": True, **result}, indent=2))
             return 0
         store = Store(args.db)
