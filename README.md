@@ -29,6 +29,22 @@ Deletion requires typing `delete` interactively, or explicitly passing `--yes` f
 
 Database defaults to `~/.local/share/goreecloud/changelogs.sqlite3`. Set `GOREE_CHANGELOGS_DB` or global `--db` to override. SQLite stores entries with product, version, kind, title, description, author, release date, JSON metadata, and creation/update timestamps. Filtering by product and version is supported.
 
+## Backups and recovery
+
+Create a consistent SQLite backup without overwriting an existing file:
+
+```sh
+goree-changelogs backup ./snapshot.sqlite3
+```
+
+Restore from a validated backup (replaces all current entries; back up the live database first):
+
+```sh
+goree-changelogs restore ./snapshot.sqlite3 --yes
+```
+
+Backups are checked for SQLite integrity and compatible entry columns. The restore command requires explicit confirmation. These commands operate on the selected local database; no remote backup or cloud synchronization is implied.
+
 ## Tests
 
 ```sh
