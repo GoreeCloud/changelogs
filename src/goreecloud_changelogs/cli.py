@@ -44,6 +44,8 @@ def parser():
     r = sub.add_parser('restore', help='Restore a validated backup (replaces existing entries)')
     r.add_argument('source')
     r.add_argument('--yes', action='store_true', help='Explicitly acknowledge replacement')
+    server = sub.add_parser("serve", help="Start token-authenticated loopback read-only API")
+    server.add_argument("--port", type=int, default=8765)
     return p
 
 def markdown(rows):
@@ -61,7 +63,10 @@ def main(argv=None):
     args = parser().parse_args(argv)
     try:
         store = Store(args.db)
-        if args.command == "backup":
+        if args.command == "serve":
+            from .api import serve
+            serve(args.db, args.port)
+        elif args.command == "backup":
             print(backup(store, args.destination))
         elif args.command == "restore":
             if not args.yes:
