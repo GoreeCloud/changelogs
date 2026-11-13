@@ -56,7 +56,14 @@ def backup(store, destination):
         temp.unlink(missing_ok=True)
     return destination
 
-def restore(store, source):
+def restore(store, source, *, page_batch=-1, progress=None):
+    """Restore via SQLite online backup API.
+
+    page_batch and progress are optional injection points for deterministic
+    recovery testing; CLI callers use SQLite's default full backup.
+    """
+    if type(page_batch) is not int or (page_batch != -1 and page_batch < 1):
+        raise ValueError("page_batch must be -1 or a positive integer")
     source = _validate_source(source)
     if source.samefile(store.path):
         raise ValueError("Source and destination databases must differ (including hard links)")
@@ -64,5 +71,5 @@ def restore(store, source):
     # Caller must explicitly acknowledge that current records will be replaced.
     with closing(sqlite3.connect(source.resolve().as_uri() + "?mode=ro", uri=True)) as incoming:
         with closing(sqlite3.connect(store.path)) as target:
-            incoming.backup(target)
+            incoming.backup(target, pages=page_batch, progress=progress)
     return store.path
