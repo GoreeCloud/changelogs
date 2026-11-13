@@ -22,7 +22,7 @@ from .hosted_auth import AuthFailed, AuthStore, COOKIE, SESSION_TTL, _password_b
 from .importer import _normalize, _reject_constant, _unique_pairs
 from .pagination import entries_page
 from .releases import page_releases
-from .store import Store
+from .store import Store, audit_permissions
 
 MAX_BODY = 65536
 IDENTIFIER = re.compile(r"/v1/entries/([1-9][0-9]{0,17})\Z")
@@ -402,6 +402,8 @@ def serve_hosted(directory, public_origin, port=8876):
     db_path, auth_path = data_paths(directory)
     if not db_path.is_file() or db_path.is_symlink():
         raise ValueError("Initialize the server before serving")
+    if not audit_permissions(db_path)["secure"]:
+        raise ValueError("Changelog storage permissions must be owner-only")
     accounts = AuthStore(auth_path)
     store = Store(db_path)
     server = BoundedHTTPServer(

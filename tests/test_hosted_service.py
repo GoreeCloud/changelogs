@@ -196,6 +196,32 @@ class SelfHostedServiceTests(unittest.TestCase):
             with self.subTest(url=url), self.assertRaises(ValueError):
                 validate_origin(url)
 
+    def test_reader_can_view_but_never_mutate_shared_history(self):
+        self.accounts.add_user("viewer", "reader-password-long-enough-2026")
+        code, _, result = self.login(username="viewer",
+                                     password="reader-password-long-enough-2026")
+        self.assertEqual(code, 200)
+        self.assertEqual(result["role"], "reader")
+        headers = {"Authorization": "Bearer " + result["token"]}
+        self.assertEqual(self.call("GET", "/v1/entries", headers=headers)[0], 200)
+        self.assertEqual(
+            self.call("POST", "/v1/entries",
+                      {"product":"mesh","version":"1","kind":"added","title":"Unauthorized"},
+                      headers)[0], 403)
+        self.assertEqual(
+            self.call("PATCH", "/v1/entries/1", {"title":"Unauthorized"}, headers)[0], 403)
+        self.assertEqual(
+            self.call("DELETE", "/v1/entries/1", headers=headers)[0], 403)
+        self.assertEqual(self.entries.list(), [])
+
+    @unittest.skipUnless(os.name == "posix", "POSIX permission inspection")
+    def test_serving_refuses_exposed_database_permissions(self):
+        from goreecloud_changelogs.hosted_server import serve_hosted
+        os.chmod(self.entries.path, 0o644)
+        with self.assertRaisesRegex(ValueError, "permissions"):
+            serve_hosted(self.root, ORIGIN, 8876)
+        self.assertEqual(self.entries.path.stat().st_mode & 0o777, 0o644)
+
     def test_password_lockout_persists_across_restart(self):
         for _ in range(5):
             with self.assertRaises(AuthFailed):
