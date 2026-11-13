@@ -54,6 +54,7 @@ def parser():
     r = sub.add_parser('restore', help='Restore a validated backup (replaces existing entries)')
     r.add_argument('source')
     r.add_argument('--yes', action='store_true', help='Explicitly acknowledge replacement')
+    r.add_argument('--dry-run', action='store_true', help='Validate restore source without changing or initializing the live database')
     r.add_argument('--recovery-backup', help='Create a verified, non-overwriting pre-restore snapshot at this path')
     v = sub.add_parser("verify-backup", help="Read-only backup integrity and schema check")
     v.add_argument("source")
@@ -77,6 +78,13 @@ def main(argv=None):
     try:
         if args.command == "verify-backup":
             print(json.dumps(verify_backup(args.source), indent=2))
+            return 0
+        if args.command == "restore" and args.dry_run:
+            result = verify_backup(args.source)
+            selected_db = Path(args.db).expanduser() if args.db else Store.default_path() if hasattr(Store, "default_path") else None
+            if selected_db is not None and Path(args.source).expanduser().resolve() == selected_db.resolve():
+                raise ValueError("Source and destination databases must differ")
+            print(json.dumps({"dry_run": True, **result}, indent=2))
             return 0
         store = Store(args.db)
         if args.command == "serve":
