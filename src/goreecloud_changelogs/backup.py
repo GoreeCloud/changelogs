@@ -1,6 +1,8 @@
 """Consistent SQLite backups and guarded restoration."""
 import os
 import sqlite3
+from .metadata import parse_metadata
+from .store import KINDS
 import tempfile
 from contextlib import closing
 from pathlib import Path
@@ -13,12 +15,51 @@ def _validate_source(path):
         raise ValueError("Backup must be an existing regular file, not a symlink")
     uri = path.resolve().as_uri() + "?mode=ro"
     with closing(sqlite3.connect(uri, uri=True)) as db:
+        db.execute("PRAGMA trusted_schema=OFF")
         result = db.execute("PRAGMA integrity_check").fetchone()
         if result is None or result[0] != "ok":
             raise ValueError("Backup failed SQLite integrity check")
-        columns = {row[1] for row in db.execute("PRAGMA table_info(entries)")}
-        if not REQUIRED_COLUMNS.issubset(columns):
+        # Reject unexpected executable schema objects such as triggers and
+        # views before restoring a snapshot into the writable live database.
+        objects = {
+            (row[0], row[1], row[2])
+            for row in db.execute(
+                "SELECT type, name, tbl_name FROM sqlite_schema "
+                "WHERE name NOT LIKE 'sqlite_%'"
+            )
+        }
+        expected_objects = {
+            ("table", "entries", "entries"),
+            ("index", "entries_product_version", "entries"),
+        }
+        if objects != expected_objects:
+            raise ValueError("Backup contains an unsupported schema object or missing index")
+        info = list(db.execute("PRAGMA table_info(entries)"))
+        columns = {row[1] for row in info}
+        if columns != REQUIRED_COLUMNS or len(info) != len(REQUIRED_COLUMNS):
             raise ValueError("Backup does not contain a compatible changelog schema")
+        for row in info:
+            name, sql_type, required, primary_key = row[1], row[2], row[3], row[5]
+            if name == "id":
+                if sql_type.upper() != "INTEGER" or primary_key != 1:
+                    raise ValueError("Backup entry primary key is incompatible")
+            elif sql_type.upper() != "TEXT" or required != 1 or primary_key:
+                raise ValueError("Backup entry column types or constraints are incompatible")
+        index_fields = [
+            row[2] for row in db.execute("PRAGMA index_info(entries_product_version)")
+        ]
+        if index_fields != ["product", "version"]:
+            raise ValueError("Backup contains an incompatible product/version index")
+        # Metadata and kind validation closes the gap between SQLite integrity
+        # (valid pages) and application-level correctness (valid changelog rows).
+        for entry_id, kind, metadata in db.execute(
+                "SELECT id, kind, metadata FROM entries"):
+            if kind not in KINDS:
+                raise ValueError(f"Backup entry {entry_id} has an invalid change kind")
+            try:
+                parse_metadata(metadata)
+            except (ValueError, TypeError) as exc:
+                raise ValueError(f"Backup entry {entry_id} has invalid JSON metadata") from exc
     return path
 
 def verify_backup(source):
