@@ -40,7 +40,13 @@ goree-changelogs backup ./snapshot.sqlite3
 goree-changelogs verify-backup ./snapshot.sqlite3
 ```
 
-Preflight a restore without creating or modifying the live database:\n\n```sh\ngoree-changelogs restore ./snapshot.sqlite3 --dry-run\n```\n\nRestore from a validated backup (replaces all current entries; back up the live database first):
+Preflight a restore without creating or modifying the live database:
+
+```sh
+goree-changelogs restore ./snapshot.sqlite3 --dry-run
+```
+
+Restore from a validated backup (replaces all current entries; back up the live database first):
 
 ```sh
 goree-changelogs restore ./snapshot.sqlite3 --yes --recovery-backup ./before-restore.sqlite3
