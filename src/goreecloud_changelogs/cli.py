@@ -91,15 +91,33 @@ def main(argv=None):
         if args.command == "verify-backup":
             print(json.dumps(verify_backup(args.source), indent=2))
             return 0
-        if args.command == "restore" and args.dry_run:
-            if args.recovery_backup:
+        if args.command == "restore":
+            # Reject unsafe or unconfirmed restores before Store() can create a database.
+            if args.dry_run and args.recovery_backup:
                 raise ValueError("--dry-run cannot be combined with --recovery-backup")
+            if not args.dry_run and not args.yes:
+                raise ValueError("Restore replaces existing entries; pass --yes to confirm")
             result = verify_backup(args.source)
             selected_db = Path(args.db).expanduser() if args.db else default_path()
             source_path = Path(args.source).expanduser()
-            if source_path.resolve() == selected_db.resolve() or (selected_db.is_file() and source_path.samefile(selected_db)):
+            if source_path.resolve() == selected_db.resolve() or (
+                    selected_db.is_file() and source_path.samefile(selected_db)):
                 raise ValueError("Source and destination databases must differ (including hard links)")
-            print(json.dumps({"dry_run": True, **result}, indent=2))
+            if args.dry_run:
+                print(json.dumps({"dry_run": True, **result}, indent=2))
+                return 0
+            if args.recovery_backup:
+                recovery = Path(args.recovery_backup).expanduser()
+                if recovery.resolve() in (selected_db.resolve(), source_path.resolve()):
+                    raise ValueError("Recovery backup must differ from source and destination")
+                if recovery.exists() or recovery.is_symlink():
+                    raise ValueError("Recovery backup must not already exist")
+                if selected_db.is_file() and recovery.is_file() and recovery.samefile(selected_db):
+                    raise ValueError("Recovery backup must differ from live database")
+            store = Store(args.db)
+            if args.recovery_backup:
+                backup(store, args.recovery_backup)
+            print(restore(store, args.source))
             return 0
         if args.command == "import":
             entries, digest = read_import(args.source)
@@ -115,18 +133,6 @@ def main(argv=None):
             serve(args.db, args.port, web=args.web)
         elif args.command == "backup":
             print(backup(store, args.destination))
-        elif args.command == "restore":
-            if not args.yes:
-                raise ValueError("Restore replaces existing entries; pass --yes to confirm")
-            if args.recovery_backup:
-                # Validate the incoming snapshot before creating a recovery copy.
-                verify_backup(args.source)
-                if Path(args.recovery_backup).expanduser().resolve() == store.path.resolve():
-                    raise ValueError("Recovery backup must differ from the live database")
-                if Path(args.recovery_backup).expanduser().resolve() == Path(args.source).expanduser().resolve():
-                    raise ValueError("Recovery backup must differ from the restore source")
-                backup(store, args.recovery_backup)
-            print(restore(store, args.source))
         elif args.command == "add":
             entry_id = store.add(args.product, args.version, args.kind, args.title,
                                  args.description, args.author, args.date, json.loads(args.metadata))

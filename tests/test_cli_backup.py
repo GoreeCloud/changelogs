@@ -97,6 +97,41 @@ class CLIRestoreTests(unittest.TestCase):
         self.assertEqual(self.invoke("restore", str(self.snapshot), "--dry-run", "--recovery-backup", str(recovery)), 1)
         self.assertFalse(recovery.exists())
 
+    def test_restore_without_confirmation_does_not_create_live_db(self):
+        self.store.add("mesh", "1", "added", "Source")
+        self.assertEqual(self.invoke("backup", str(self.snapshot)), 0)
+        missing = self.root / "never-created" / "live.sqlite3"
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output), contextlib.redirect_stderr(io.StringIO()):
+            code = main(["--db", str(missing), "restore", str(self.snapshot)])
+        self.assertEqual(code, 1)
+        self.assertFalse(missing.exists())
+        self.assertFalse(missing.parent.exists())
+
+    def test_invalid_confirmed_restore_does_not_create_live_db(self):
+        invalid = self.root / "corrupt.sqlite3"
+        invalid.write_bytes(b"invalid database")
+        missing = self.root / "never-created" / "live.sqlite3"
+        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+            code = main(["--db", str(missing), "restore", str(invalid), "--yes"])
+        self.assertEqual(code, 1)
+        self.assertFalse(missing.exists())
+        self.assertFalse(missing.parent.exists())
+
+    def test_recovery_destination_collision_preflight(self):
+        self.store.add("mesh", "1", "added", "Source")
+        self.assertEqual(self.invoke("backup", str(self.snapshot)), 0)
+        other = self.root / "existing.sqlite3"
+        other.write_text("do not overwrite", encoding="utf-8")
+        missing = self.root / "never-created" / "live.sqlite3"
+        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+            code = main(["--db", str(missing), "restore", str(self.snapshot),
+                         "--yes", "--recovery-backup", str(other)])
+        self.assertEqual(code, 1)
+        self.assertFalse(missing.exists())
+        self.assertFalse(missing.parent.exists())
+        self.assertEqual(other.read_text(encoding="utf-8"), "do not overwrite")
+
     def test_backup_refuses_overwrite(self):
         self.assertEqual(self.invoke("backup", str(self.snapshot)), 0)
         self.assertEqual(self.invoke("backup", str(self.snapshot)), 1)
