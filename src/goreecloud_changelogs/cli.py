@@ -61,6 +61,7 @@ def parser():
     v.add_argument("source")
     server = sub.add_parser("serve", help="Start token-authenticated loopback read-only API")
     server.add_argument("--port", type=int, default=8765)
+    server.add_argument("--web", action="store_true", help="Serve the optional local read-only web viewer")
     return p
 
 def markdown(rows):
@@ -97,7 +98,7 @@ def main(argv=None):
         store = Store(args.db)
         if args.command == "serve":
             from .api import serve
-            serve(args.db, args.port)
+            serve(args.db, args.port, web=args.web)
         elif args.command == "backup":
             print(backup(store, args.destination))
         elif args.command == "restore":

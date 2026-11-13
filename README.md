@@ -2,7 +2,7 @@
 
 Self-hosted, local-first changelog management for applications, services, APIs, and infrastructure.
 
-**Status:** 0.1.0 development CLI. A read-only, loopback HTTP API is available for local integrations. Web and Android clients are planned, not implemented or deployed.
+**Status:** 0.1.0 development CLI. A read-only, loopback HTTP API is available for local integrations. Optional loopback web viewer and native Android reader sources are included; neither is a remotely exposed or production-deployed service.
 
 ## Install
 
@@ -40,7 +40,13 @@ goree-changelogs backup ./snapshot.sqlite3
 goree-changelogs verify-backup ./snapshot.sqlite3
 ```
 
-Preflight a restore without creating or modifying the live database:\n\n```sh\ngoree-changelogs restore ./snapshot.sqlite3 --dry-run\n```\n\nRestore from a validated backup (replaces all current entries; back up the live database first):
+Preflight a restore without creating or modifying the live database:
+
+```sh
+goree-changelogs restore ./snapshot.sqlite3 --dry-run
+```
+
+Restore from a validated backup (replaces all current entries; back up the live database first):
 
 ```sh
 goree-changelogs restore ./snapshot.sqlite3 --yes --recovery-backup ./before-restore.sqlite3
@@ -76,6 +82,30 @@ curl -H "Authorization: Bearer $GOREE_CHANGELOGS_API_TOKEN" \
 
 Endpoints: `GET /health`, `GET /v1/entries`, and `GET /v1/search?q=sync` (literal case-insensitive search across product, version, title, description and author) with optional `product`, `version`, and `limit` (1–1000). List and search endpoints support `offset` (0–1,000,000) for bounded pagination and return `limit`, `offset`, and a conservative `has_more` flag (a full page may still be the final page). The API also exposes `GET /v1/summary` for aggregate counts by change kind and product (optional `product` filter). The server binds **only to 127.0.0.1**. It does not provide cross-origin browser access or write endpoints. Do not expose it through an unauthenticated reverse proxy or tunnel. Token access is not equivalent to GoreeCloud Identity integration.
 
+## Optional local web viewer
+
+Use the existing token-authenticated loopback API with `--web` to enable the included accessible, responsive GoreeCloud UI-style changelog browser:
+
+```sh
+export GOREE_CHANGELOGS_API_TOKEN="$(python -c 'import secrets; print(secrets.token_urlsafe(48))')"
+goree-changelogs serve --web --port 8765
+```
+
+Open `http://127.0.0.1:8765/` on **the same computer**, then paste the token. The UI supports viewing, searching, filtering, and paging records. It is **read-only**: add/edit/delete stay in the CLI. The page itself is unprivileged static HTML; API data always requires the bearer token. The token is held in browser-tab memory, never placed in a URL or local storage. The UI is not published to the public internet and no remote web access is enabled.
+
+The API also supports authenticated `GET /v1/entries/{id}` to view a specific entry, in addition to the existing list, search and summary routes. All HTTP write methods remain disabled. HTTP is restricted to `127.0.0.1`; never expose this service over a tunnel or reverse proxy without a reviewed encrypted, authenticated gateway and GoreeCloud Identity/privilege design.
+
+## Optional Android reader (source preview)
+
+The `android-app/` directory contains a native Android Java/SDK app with no third-party runtime libraries. It reads from the same authenticated, **read-only** API; it does not require a GoreeCloud cloud account. The current local-only connection is intended for developers using an authorized USB-connected device or emulator:
+
+```sh
+adb reverse tcp:8765 tcp:8765
+goree-changelogs serve --port 8765
+```
+
+Install/run the Android source with Android Studio and the installed Android SDK, then provide the API token in-app. The app contacts **only** `127.0.0.1:8765` and does not persist the token. Android does not access your host's loopback port without a configured reverse tunnel. Remote cellular/Wi-Fi access, secure Identity integration, and signed Android release builds are not implemented. See [android-app/README.md](android-app/README.md).
+
 ## Tests
 
 ```sh
@@ -88,6 +118,7 @@ python -m unittest discover -s tests -v
 This repository remains a development release until the following gates are evidenced:
 
 - [x] Local CLI/API regression suite, SQLite integrity checks, and authenticated loopback API tests
+- [x] GitHub Actions Android debug source compilation (Gradle 8.9 / SDK 35 / JDK 17); device acceptance remains open
 - [x] Verified consistent backup snapshots under a concurrent-writer test, including WAL-mode snapshot cleanup
 - [x] Recovery snapshot, collision rejection, and invalid-source preservation regression tests
 - [ ] Verify interruption and crash recovery, including database restore failure injection
@@ -102,8 +133,8 @@ A passing test suite is not proof of deployment safety or authorization to chang
 ## Roadmap
 
 - Extend the loopback read-only API with scoped authorization, audited writes, and GoreeCloud Identity integration
-- Optional GoreeCloud UI-based responsive web application
-- Optional Android application sharing the API
+- Expand the implemented local web viewer into a scoped, audited editing client after authentication review
+- Expand the implemented Android read-only client after Android build/device validation and secure remote-access design
 - Backups, restore, import, migrations and retention controls
 - GoreeCloud Mesh integration, GoreeCloud Identity access controls, GoreeShield privacy governance and Wardveil security review
 
