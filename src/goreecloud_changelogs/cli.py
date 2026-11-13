@@ -53,6 +53,7 @@ def parser():
     r = sub.add_parser('restore', help='Restore a validated backup (replaces existing entries)')
     r.add_argument('source')
     r.add_argument('--yes', action='store_true', help='Explicitly acknowledge replacement')
+    r.add_argument('--recovery-backup', help='Create a verified, non-overwriting pre-restore snapshot at this path')
     v = sub.add_parser("verify-backup", help="Read-only backup integrity and schema check")
     v.add_argument("source")
     server = sub.add_parser("serve", help="Start token-authenticated loopback read-only API")
@@ -85,6 +86,14 @@ def main(argv=None):
         elif args.command == "restore":
             if not args.yes:
                 raise ValueError("Restore replaces existing entries; pass --yes to confirm")
+            if args.recovery_backup:
+                # Validate the incoming snapshot before creating a recovery copy.
+                verify_backup(args.source)
+                if __import__("pathlib").Path(args.recovery_backup).expanduser().resolve() == store.path.resolve():
+                    raise ValueError("Recovery backup must differ from the live database")
+                if __import__("pathlib").Path(args.recovery_backup).expanduser().resolve() == __import__("pathlib").Path(args.source).expanduser().resolve():
+                    raise ValueError("Recovery backup must differ from the restore source")
+                backup(store, args.recovery_backup)
             print(restore(store, args.source))
         elif args.command == "add":
             entry_id = store.add(args.product, args.version, args.kind, args.title,
