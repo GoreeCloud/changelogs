@@ -18,6 +18,7 @@ goree-changelogs --help
 ```sh
 goree-changelogs add goreecloud-mesh 0.1.0 added "Initial sync engine" --description "Local-first synchronization" --author GoreeCloud
 goree-changelogs list --product goreecloud-mesh
+goree-changelogs search "synchronization" --product goreecloud-mesh
 goree-changelogs show 1
 goree-changelogs edit 1 --description "Updated release details"
 goree-changelogs export --format markdown > CHANGELOG.md
@@ -61,7 +62,7 @@ curl -H "Authorization: Bearer $GOREE_CHANGELOGS_API_TOKEN" \
   "http://127.0.0.1:8765/v1/entries?product=goreecloud-mesh&limit=100"
 ```
 
-Endpoints: `GET /health` and `GET /v1/entries` with optional `product`, `version`, and `limit` (1–1000). The server binds **only to 127.0.0.1**. It does not provide cross-origin browser access or write endpoints. Do not expose it through an unauthenticated reverse proxy or tunnel. Token access is not equivalent to GoreeCloud Identity integration.
+Endpoints: `GET /health`, `GET /v1/entries`, and `GET /v1/search?q=sync` (literal case-insensitive search across product, version, title, description and author) with optional `product`, `version`, and `limit` (1–1000). The server binds **only to 127.0.0.1**. It does not provide cross-origin browser access or write endpoints. Do not expose it through an unauthenticated reverse proxy or tunnel. Token access is not equivalent to GoreeCloud Identity integration.
 
 ## Tests
 
