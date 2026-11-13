@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "goreecloud-changelogs"
+version = "0.1.0"
+description = "Self-hosted, local-first changelog management CLI"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [{name = "GoreeCloud"}]
+dependencies = []
+
+[project.scripts]
+goree-changelogs = "goreecloud_changelogs.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
