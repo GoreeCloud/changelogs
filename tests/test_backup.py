@@ -7,6 +7,7 @@ import tempfile
 import threading
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 from goreecloud_changelogs.backup import backup, restore, verify_backup
 from goreecloud_changelogs.cli import main
 from goreecloud_changelogs.store import Store
@@ -65,6 +66,21 @@ class BackupTests(unittest.TestCase):
         self.assertFalse(thread.is_alive())
         self.assertEqual(failures, [])
         self.assertEqual(len(self.store.list()), 36)
+
+    def test_backup_validation_failure_cleans_temporary_files(self):
+        destination = self.base / "failed.sqlite3"
+        with patch("goreecloud_changelogs.backup._validate_source", side_effect=ValueError("simulated validation failure")):
+            with self.assertRaisesRegex(ValueError, "simulated"):
+                backup(self.store, destination)
+        self.assertFalse(destination.exists())
+        self.assertEqual(list(self.base.glob("failed.sqlite3.partial-*")), [])
+
+    def test_backup_destination_collision_preserves_original(self):
+        destination = self.base / "existing.sqlite3"
+        destination.write_bytes(b"do not overwrite")
+        with self.assertRaises(ValueError):
+            backup(self.store, destination)
+        self.assertEqual(destination.read_bytes(), b"do not overwrite")
 
     def test_no_clobber(self):
         destination = self.base / "snapshot.sqlite3"
