@@ -38,3 +38,20 @@ jobs:
           gradle-version: "8.9"
       - name: Compile native Android reader
         run: gradle --project-dir android-app :app:assembleDebug --no-daemon --stacktrace
+
+  wheel-smoke:
+    name: Source-absent wheel smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build installable wheel
+        run: python -m pip wheel --no-deps --wheel-dir "${RUNNER_TEMP}/wheels" .
+      - name: Install built wheel
+        run: python -m pip install --force-reinstall "${RUNNER_TEMP}"/wheels/*.whl
+      - name: Verify installed package outside source tree
+        run: |
+          cd "${RUNNER_TEMP}"
+          python "${GITHUB_WORKSPACE}/scripts/wheel_smoke.py"
