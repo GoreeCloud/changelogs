@@ -2,7 +2,7 @@
 
 Self-hosted, local-first changelog management for applications, services, APIs, and infrastructure.
 
-**Status:** **1.0.0 stable source scope — local CLI and token-authenticated 127.0.0.1 read-only API only.** The optional `serve --web` viewer and native Android reader are **experimental previews**, expressly outside stable support. No production host deployment, remote-access gateway, or Android release is included. See [v1.0.0 release scope](docs/releases/v1.0.0.md) and the separate deployment acceptance gates below.
+**Status:** 0.1.0 development CLI. A read-only, loopback HTTP API is available for local integrations. Optional loopback web viewer and native Android reader sources are included; neither is a remotely exposed or production-deployed service.
 
 ## Install
 
@@ -12,27 +12,6 @@ Python 3.10+:
 python -m pip install .
 goree-changelogs --help
 ```
-
-## Self-hosted server — v1.1 development
-
-**This is the intended multi-client deployment model.** One instance runs on your VPS or a local server and stores the authoritative changelogs plus separate local user/session data. The CLI can write directly to that host; the web app serves an account sign-in screen and reads/writes the same database. The Android preview is designed for HTTPS login to that server. The published v1.0.0 tag is immutable and remains a local CLI/API release; these hosted changes are an unreleased v1.1 development branch.
-
-An operator bootstraps the first administrator locally, then runs the application **bound to 127.0.0.1**, behind independently configured HTTPS/TLS ingress. The server offers no public registration, no default passwords, no insecure external HTTP, no third-party analytics or automatic exports. Authentication uses salted 600,000-iteration PBKDF2-HMAC-SHA256 hashes, generic login errors and a persistent rate limit, with revocable, expiring sessions. The web app uses Secure HttpOnly SameSite cookies and an anti-CSRF token; CLI/Android obtain short-lived bearer sessions. **Do not expose the HTTP listener directly or treat this work as production deployed.**
-
-```bash
-# On a selected trusted host, interactive bootstrap (once):
-goree-changelogs host init --data-dir /var/lib/goreecloud/changelogs --username admin
-# After setting up a reviewed HTTPS reverse proxy:
-goree-changelogs host serve --data-dir /var/lib/goreecloud/changelogs \
-  --origin https://YOUR-APPROVED-DOMAIN --port 8876
-
-# On a client machine: obtain a short-lived token (do not commit/store in a file):
-goree-changelogs --server https://YOUR-APPROVED-DOMAIN login --username admin
-# Supply that token securely via GOREE_CHANGELOGS_REMOTE_TOKEN:
-goree-changelogs --server https://YOUR-APPROVED-DOMAIN add mesh 1.0.0 added "Feature launched"
-```
-
-See [self-hosted installation, client access and migration](docs/HOSTED_SERVER.md) for safe operational prerequisites. Hosting on an owned VPS or physical server is supported by the same service design; changing locations requires a reviewed database and account backup/restore, not a new cloud account.
 
 ## Usage
 
@@ -187,13 +166,22 @@ python -m unittest discover -s tests -v
 
 GitHub Actions additionally builds and installs a wheel, then tests the installed CLI, database lifecycle, release notes, JSON portability and token-protected web/API resources from **outside the source checkout**. This catches missing bundled web assets and packaging regressions that source-tree unit tests alone can miss. It does not certify Android hardware behavior or a production deployment.
 
-## Stable source release and deployment boundaries
+## Production readiness gates
 
-The supported **v1.0.0 source release** consists of the locally installed Python CLI, SQLite storage and recovery commands, and the single-host bearer-token read-only HTTP API. Release checks include Python 3.10–3.13 on Linux, a built-and-installed wheel, API method/authentication tests, disposable restore fault injection and a separate release-branch gate. The package requires no third-party runtime dependencies. The Android reader and opt-in web viewer remain unpromoted previews even though they ship as source/bundled files; they must not be advertised as stable clients. Source distribution is distinct from deployed production readiness.
+This repository remains a development release until the following gates are evidenced:
 
-**Unmet host-specific deployment gates:** actual authorized target-machine staging, filesystem/ACL/ownership and encryption review, incident/monitoring verification, physical power-loss and maintenance-window restore/rollback drill, real web browser/Android acceptance, and hardened branch ruleset enforcement. These are not waived by a successful source release. No server is installed, exposed or restarted by the GitHub release process.
+- [x] Local CLI/API regression suite, SQLite integrity checks, and authenticated loopback API tests
+- [x] GitHub Actions Android debug source compilation (Gradle 8.9 / SDK 35 / JDK 17); device acceptance remains open
+- [x] Verified consistent backup snapshots under a concurrent-writer test, including WAL-mode snapshot cleanup
+- [x] Recovery snapshot, collision rejection, and invalid-source preservation regression tests
+- [ ] Verify interruption and crash recovery, including database restore failure injection
+- [ ] Validate exclusive maintenance procedures for restore (stop writers, take recovery snapshot, verify rollback)
+- [ ] Review file and directory permissions, backup retention, encryption at rest, and secret handling in the intended deployment
+- [ ] Complete threat modeling, dependency/supply-chain review, and performance/load evaluation
+- [ ] Confirm all supported Python CI versions pass on the final release commit
+- [ ] Perform an authorized staging deployment, monitoring/alerting verification, and rollback drill before production approval
 
-Before operating on real data, make a validated recovery snapshot and verify database permissions. Do not expose the API beyond `127.0.0.1`. See [the release notes and boundaries](docs/releases/v1.0.0.md) and [read-only staging acceptance](docs/STAGING_READ_ONLY_ACCEPTANCE.md).
+A passing test suite is not proof of deployment safety or authorization to change production systems.
 
 ## Roadmap
 
