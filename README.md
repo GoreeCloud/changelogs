@@ -2,7 +2,7 @@
 
 Self-hosted, local-first changelog management for applications, services, APIs, and infrastructure.
 
-**Status:** 0.1.0 development CLI. Web and Android clients are planned, not implemented or deployed.
+**Status:** 0.1.0 development CLI. A read-only, loopback HTTP API is available for local integrations. Web and Android clients are planned, not implemented or deployed.
 
 ## Install
 
@@ -45,6 +45,24 @@ goree-changelogs restore ./snapshot.sqlite3 --yes
 
 Backups are checked for SQLite integrity and compatible entry columns. The restore command requires explicit confirmation. These commands operate on the selected local database; no remote backup or cloud synchronization is implied.
 
+## Local read-only HTTP API
+
+Generate a secret token and keep it outside source control (for example, in your shell's secret environment configuration). The API **requires** a bearer token of at least 32 characters on every request, including health checks.
+
+```sh
+export GOREE_CHANGELOGS_API_TOKEN="$(python -c 'import secrets; print(secrets.token_urlsafe(48))')"
+goree-changelogs serve --port 8765
+```
+
+In a separate shell with the same token:
+
+```sh
+curl -H "Authorization: Bearer $GOREE_CHANGELOGS_API_TOKEN" \
+  "http://127.0.0.1:8765/v1/entries?product=goreecloud-mesh&limit=100"
+```
+
+Endpoints: `GET /health` and `GET /v1/entries` with optional `product`, `version`, and `limit` (1–1000). The server binds **only to 127.0.0.1**. It does not provide cross-origin browser access or write endpoints. Do not expose it through an unauthenticated reverse proxy or tunnel. Token access is not equivalent to GoreeCloud Identity integration.
+
 ## Tests
 
 ```sh
@@ -54,7 +72,7 @@ python -m unittest discover -s tests -v
 
 ## Roadmap
 
-- Authenticated, versioned HTTP API with scoped authorization and audit events
+- Extend the loopback read-only API with scoped authorization, audited writes, and GoreeCloud Identity integration
 - Optional GoreeCloud UI-based responsive web application
 - Optional Android application sharing the API
 - Backups, restore, import, migrations and retention controls
