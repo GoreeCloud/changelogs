@@ -113,6 +113,15 @@ def parser():
     host_remove = host_sub.add_parser("user-remove", help="Remove a local account and revoke sessions")
     host_remove.add_argument("--data-dir", required=True)
     host_remove.add_argument("--username", required=True)
+    host_backup = host_sub.add_parser("backup",
+        help="Offline, private no-clobber backup of server data and account DBs")
+    host_backup.add_argument("--data-dir", required=True)
+    host_backup.add_argument("--destination", required=True)
+    host_backup.add_argument("--offline-ack", action="store_true",
+                             help="Confirm all server writers are stopped")
+    host_verify = host_sub.add_parser("verify-backup",
+        help="Read-only verification of a complete self-hosted backup pair")
+    host_verify.add_argument("--source", required=True)
     host_serve = host_sub.add_parser("serve", help="Run authenticated web/API listener on loopback")
     host_serve.add_argument("--data-dir", required=True)
     host_serve.add_argument("--origin", default=os.environ.get("GOREE_CHANGELOGS_PUBLIC_ORIGIN"),
@@ -133,6 +142,16 @@ def main(argv=None):
             if args.server or args.db:
                 raise ValueError("Host commands use --data-dir, not --server or --db")
             from .hosted_server import data_paths, serve_hosted
+            if args.host_command == "verify-backup":
+                from .hosted_backup import verify_host_backup
+                print(json.dumps(verify_host_backup(args.source), indent=2))
+                return 0
+            if args.host_command == "backup":
+                from .hosted_backup import backup_host
+                result = backup_host(args.data_dir, args.destination,
+                                     offline_ack=args.offline_ack)
+                print(json.dumps(result, indent=2))
+                return 0
             if args.host_command == "serve":
                 serve_hosted(args.data_dir, args.origin, args.port)
                 return 0
