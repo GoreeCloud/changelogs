@@ -1,0 +1,27 @@
+# Example only; verify and provision the account, directories, TLS ingress
+# and exact reviewed installation path before installing this unit.
+[Unit]
+Description=GoreeCloud Changelogs self-hosted service
+After=network.target
+[Service]
+Type=simple
+User=goreecloud-changelogs
+Group=goreecloud-changelogs
+WorkingDirectory=/var/lib/goreecloud/changelogs
+EnvironmentFile=/etc/goreecloud/changelogs.env
+ExecStart=/opt/goreecloud/changelogs/.venv/bin/goree-changelogs host serve --data-dir /var/lib/goreecloud/changelogs --port 8876
+Restart=on-failure
+RestartSec=5s
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+LockPersonality=true
+RestrictSUIDSGID=true
+ReadWritePaths=/var/lib/goreecloud/changelogs
+[Install]
+WantedBy=multi-user.target
