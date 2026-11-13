@@ -1,6 +1,7 @@
 """Regression tests for CLI backup and restore confirmation."""
 import contextlib
 import io
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -79,6 +80,22 @@ class CLIRestoreTests(unittest.TestCase):
             result = main(["--db", str(missing), "restore", str(invalid), "--dry-run"])
         self.assertEqual(result, 1)
         self.assertFalse(missing.exists())
+
+    def test_dry_run_rejects_live_hardlink_alias(self):
+        if not hasattr(os, "link"):
+            self.skipTest("hard links unavailable")
+        self.store.add("mesh", "1", "added", "Preserve")
+        alias = self.root / "alias.sqlite3"
+        os.link(self.db, alias)
+        self.assertEqual(self.invoke("restore", str(alias), "--dry-run"), 1)
+        self.assertEqual(len(self.store.list()), 1)
+
+    def test_dry_run_rejects_recovery_backup_option(self):
+        self.store.add("mesh", "1", "added", "Preserve")
+        self.assertEqual(self.invoke("backup", str(self.snapshot)), 0)
+        recovery = self.root / "unused-recovery.sqlite3"
+        self.assertEqual(self.invoke("restore", str(self.snapshot), "--dry-run", "--recovery-backup", str(recovery)), 1)
+        self.assertFalse(recovery.exists())
 
     def test_backup_refuses_overwrite(self):
         self.assertEqual(self.invoke("backup", str(self.snapshot)), 0)
