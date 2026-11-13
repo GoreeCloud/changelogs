@@ -17,8 +17,8 @@ goree-changelogs --help
 
 ```sh
 goree-changelogs add goreecloud-mesh 0.1.0 added "Initial sync engine" --description "Local-first synchronization" --author GoreeCloud
-goree-changelogs list --product goreecloud-mesh --limit 50 --offset 0
-goree-changelogs search "synchronization" --product goreecloud-mesh
+goree-changelogs list --product goreecloud-mesh --kind security --limit 50 --offset 0
+goree-changelogs search "synchronization" --product goreecloud-mesh --kind fixed
 goree-changelogs summary --product goreecloud-mesh
 goree-changelogs show 1
 goree-changelogs edit 1 --description "Updated release details"
@@ -29,7 +29,7 @@ goree-changelogs delete 1
 
 Deletion requires typing `delete` interactively, or explicitly passing `--yes` for automation. Malformed add/edit inputs and refused or cancelled deletes are rejected before the CLI initializes storage in an otherwise missing database location. Back up the database before deletion.
 
-Database defaults to `~/.local/share/goreecloud/changelogs.sqlite3`. Set `GOREE_CHANGELOGS_DB` or global `--db` to override. SQLite stores entries with product, version, kind, title, description, author, release date, JSON metadata, and creation/update timestamps. Filtering by product and version is supported. JSON metadata is a strictly parsed object; duplicate keys, NaN/Infinity, non-JSON values and metadata larger than 64 KiB are rejected before insertion or update.
+Database defaults to `~/.local/share/goreecloud/changelogs.sqlite3`. Set `GOREE_CHANGELOGS_DB` or global `--db` to override. SQLite stores entries with product, version, kind, title, description, author, release date, JSON metadata, and creation/update timestamps. Filtering by product, version and **change kind** (e.g., `added`, `fixed`, `security`) is supported on list; search supports optional product and kind filters. JSON metadata is a strictly parsed object; duplicate keys, NaN/Infinity, non-JSON values and metadata larger than 64 KiB are rejected before insertion or update.
 
 ## Release notes and version history
 
@@ -129,7 +129,7 @@ curl -H "Authorization: Bearer $GOREE_CHANGELOGS_API_TOKEN" \
   "http://127.0.0.1:8765/v1/entries?product=goreecloud-mesh&limit=100"
 ```
 
-Endpoints: `GET /health`, `GET /v1/entries`, and `GET /v1/search?q=sync` (literal case-insensitive search across product, version, title, description and author) with optional `product`, `version`, and `limit` (1–1000). List and search endpoints support `offset` (0–1,000,000) for bounded pagination and return `limit`, `offset`, and an **exact, lookahead-backed** `has_more` indicator for the queried snapshot. An exactly full last page reports false. The same applies to grouped `/v1/releases` responses. Beyond the maximum supported offset there is no navigable next page. Like all offset pagination, independently requested pages can drift if another process edits the database between requests; export a consistent SQLite backup for immutable history. The API also exposes `GET /v1/summary` for aggregate counts by change kind and product (optional `product` filter). The server binds **only to 127.0.0.1**. It does not provide cross-origin browser access or write endpoints. The standard listener caps active connections at 16, returns HTTP 503 when saturated, closes idle sockets after eight seconds, and rejects request targets longer than 4,096 characters (HTTP 414). These are local resource limits, not authorization, DDoS immunity, or a license to expose the service externally. Do not expose it through an unauthenticated reverse proxy or tunnel. Token access is not equivalent to GoreeCloud Identity integration.
+Endpoints: `GET /health`, `GET /v1/entries`, and `GET /v1/search?q=sync` (literal case-insensitive search across product, version, title, description and author) with optional `product`, `version`, and `limit` (1–1000). List and search endpoints support `offset` (0–1,000,000) for bounded pagination and return `limit`, `offset`, and an **exact, lookahead-backed** `has_more` indicator for the queried snapshot. An exactly full last page reports false. The same applies to grouped `/v1/releases` responses. Beyond the maximum supported offset there is no navigable next page. Like all offset pagination, independently requested pages can drift if another process edits the database between requests; export a consistent SQLite backup for immutable history. List and search API queries additionally accept `kind=added|changed|fixed|removed|security|deprecated|other`; invalid values fail with HTTP 400 and grouped release/summary endpoints reject this parameter. The optional web viewer includes a keyboard-accessible change-type selector. The API also exposes `GET /v1/summary` for aggregate counts by change kind and product (optional `product` filter). The server binds **only to 127.0.0.1**. It does not provide cross-origin browser access or write endpoints. The standard listener caps active connections at 16, returns HTTP 503 when saturated, closes idle sockets after eight seconds, and rejects request targets longer than 4,096 characters (HTTP 414). These are local resource limits, not authorization, DDoS immunity, or a license to expose the service externally. Do not expose it through an unauthenticated reverse proxy or tunnel. Token access is not equivalent to GoreeCloud Identity integration.
 
 ## Optional local web viewer
 

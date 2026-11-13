@@ -23,3 +23,11 @@
   .glass{background:var(--gc-surface);border-color:var(--gc-outline-soft);backdrop-filter:none;-webkit-backdrop-filter:none}
 }
 @media(forced-colors:active){.glass{background:Canvas;border:1px solid CanvasText;backdrop-filter:none}.mode-button[aria-pressed="true"]{outline:2px solid Highlight}}
+
+/* GC UI alpha semantic-role form control for changelog kind filtering */
+.filters{grid-template-columns:1fr 1.3fr .8fr auto}
+select{font:inherit;color:var(--gc-text);background:var(--gc-surface);
+  border:1px solid var(--gc-outline-soft);border-radius:var(--gc-radius-sm);
+  padding:12px 14px;width:100%;min-height:var(--gc-control-min);margin-top:8px}
+select:focus-visible{outline:3px solid var(--gc-focus-ring);outline-offset:3px}
+@media(max-width:860px){.filters{grid-template-columns:1fr}}
