@@ -61,6 +61,16 @@ class BackupTests(unittest.TestCase):
         with contextlib.redirect_stderr(io.StringIO()):
             self.assertEqual(main(["verify-backup", str(invalid)]), 1)
 
+    def test_restore_rejects_live_database_hardlink(self):
+        if not hasattr(os, "link"):
+            self.skipTest("hard links unavailable")
+        alias = self.base / "live-alias.sqlite3"
+        os.link(self.store.path, alias)
+        self.store.add("mesh", "1", "added", "Keep")
+        with self.assertRaisesRegex(ValueError, "hard links"):
+            restore(self.store, alias)
+        self.assertEqual(len(self.store.list()), 1)
+
     def test_reject_invalid_database(self):
         invalid = self.base / "invalid.sqlite3"
         with sqlite3.connect(invalid) as db:
