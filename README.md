@@ -43,10 +43,10 @@ goree-changelogs verify-backup ./snapshot.sqlite3
 Restore from a validated backup (replaces all current entries; back up the live database first):
 
 ```sh
-goree-changelogs restore ./snapshot.sqlite3 --yes
+goree-changelogs restore ./snapshot.sqlite3 --yes --recovery-backup ./before-restore.sqlite3
 ```
 
-Backups are checked for SQLite integrity and compatible entry columns. `verify-backup` performs a non-mutating check and prints JSON containing `valid` and `entries`; it does not initialize a live database. The restore command requires explicit confirmation. These commands operate on the selected local database; no remote backup or cloud synchronization is implied.
+Backups are checked for SQLite integrity and compatible entry columns. `verify-backup` performs a non-mutating check and prints JSON containing `valid` and `entries`; it does not initialize a live database. The restore command requires explicit confirmation. The optional `--recovery-backup` creates a validated, non-overwriting snapshot of the current database before replacing records. This is not an automatic rollback mechanism, and concurrent writers must be stopped during recovery. These commands operate on the selected local database; no remote backup or cloud synchronization is implied.
 
 ## Local read-only HTTP API
 
