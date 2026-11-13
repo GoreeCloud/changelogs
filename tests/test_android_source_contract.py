@@ -27,6 +27,19 @@ class AndroidSessionSourceTests(unittest.TestCase):
         self.assertIn('connection.setRequestMethod("GET")', text)
         self.assertNotIn('connection.setRequestMethod("POST")', text)
 
+    def test_hosted_session_expiry_clears_private_ui_and_stale_responses(self):
+        hosted = (SOURCE.parent / "HostedActivity.java").read_text(encoding="utf-8")
+        self.assertIn("SessionRejectedException", hosted)
+        self.assertIn("if (result == 401) throw new SessionRejectedException()", hosted)
+        self.assertIn("error instanceof SessionRejectedException", hosted)
+        self.assertIn("clearLocalSession();", hosted)
+        for field in ("serverInput", "usernameInput", "passwordInput", "productInput"):
+            self.assertIn(field + '.setText("");', hosted)
+        self.assertIn("entries.removeAllViews();", hosted)
+        self.assertIn("++sessionGeneration;", hosted)
+        self.assertIn("++requestGeneration;", hosted)
+        self.assertNotIn("SharedPreferences", hosted)
+
     def test_session_secrets_do_not_persist_or_redirect(self):
         text = SOURCE.read_text(encoding="utf-8")
         self.assertIn("tokenInput.setSaveEnabled(false)", text)
