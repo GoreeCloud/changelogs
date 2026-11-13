@@ -2,7 +2,7 @@ import tempfile
 import os
 import unittest
 from pathlib import Path
-from goreecloud_changelogs.store import Store
+from goreecloud_changelogs.store import Store, audit_permissions
 from goreecloud_changelogs.cli import markdown, main
 
 class StoreTests(unittest.TestCase):
@@ -31,6 +31,24 @@ class StoreTests(unittest.TestCase):
         os.chmod(self.db, 0o640)
         Store(self.db)
         self.assertEqual(self.db.stat().st_mode & 0o777, 0o640)
+
+    def test_read_only_permission_audit(self):
+        if os.name != "posix":
+            self.skipTest("POSIX permission bits")
+        directory = self.db.parent
+        os.chmod(directory, 0o700)
+        self.assertTrue(audit_permissions(self.db)["secure"])
+        os.chmod(self.db, 0o644)
+        result = audit_permissions(self.db)
+        self.assertFalse(result["secure"])
+        self.assertTrue(any("database:" in item for item in result["findings"]))
+        self.assertEqual(self.db.stat().st_mode & 0o777, 0o644)
+        os.chmod(self.db, 0o600)
+        os.chmod(directory, 0o755)
+        self.assertFalse(audit_permissions(self.db)["secure"])
+        missing = directory / "never-created.sqlite3"
+        self.assertEqual(main(["--db", str(missing), "audit-permissions"]), 1)
+        self.assertFalse(missing.exists())
 
     def test_invalid(self):
         with self.assertRaises(ValueError):
