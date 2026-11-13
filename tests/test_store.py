@@ -1,4 +1,5 @@
 import tempfile
+import os
 import unittest
 from pathlib import Path
 from goreecloud_changelogs.store import Store
@@ -22,6 +23,14 @@ class StoreTests(unittest.TestCase):
         self.assertIn("Secure sync", markdown(self.store.list()))
         self.assertTrue(self.store.delete(eid))
         self.assertIsNone(self.store.get(eid))
+
+    def test_owner_only_new_database_and_existing_mode_preserved(self):
+        if os.name != "posix":
+            self.skipTest("POSIX permission bits")
+        self.assertEqual(self.db.stat().st_mode & 0o777, 0o600)
+        os.chmod(self.db, 0o640)
+        Store(self.db)
+        self.assertEqual(self.db.stat().st_mode & 0o777, 0o640)
 
     def test_invalid(self):
         with self.assertRaises(ValueError):
