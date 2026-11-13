@@ -73,6 +73,22 @@ python -m pip install -e .
 python -m unittest discover -s tests -v
 ```
 
+## Production readiness gates
+
+This repository remains a development release until the following gates are evidenced:
+
+- [x] Local CLI/API regression suite, SQLite integrity checks, and authenticated loopback API tests
+- [x] Verified consistent backup snapshots under a concurrent-writer test, including WAL-mode snapshot cleanup
+- [x] Recovery snapshot, collision rejection, and invalid-source preservation regression tests
+- [ ] Verify interruption and crash recovery, including database restore failure injection
+- [ ] Validate exclusive maintenance procedures for restore (stop writers, take recovery snapshot, verify rollback)
+- [ ] Review file and directory permissions, backup retention, encryption at rest, and secret handling in the intended deployment
+- [ ] Complete threat modeling, dependency/supply-chain review, and performance/load evaluation
+- [ ] Confirm all supported Python CI versions pass on the final release commit
+- [ ] Perform an authorized staging deployment, monitoring/alerting verification, and rollback drill before production approval
+
+A passing test suite is not proof of deployment safety or authorization to change production systems.
+
 ## Roadmap
 
 - Extend the loopback read-only API with scoped authorization, audited writes, and GoreeCloud Identity integration
