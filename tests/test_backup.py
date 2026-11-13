@@ -1,4 +1,5 @@
 import sqlite3
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -27,6 +28,13 @@ class BackupTests(unittest.TestCase):
         backup(self.store, destination)
         with self.assertRaises(ValueError):
             backup(self.store, destination)
+
+    def test_private_backup_and_no_temp_files(self):
+        destination = self.base / "snapshot.sqlite3"
+        backup(self.store, destination)
+        self.assertEqual(list(self.base.glob("snapshot.sqlite3.partial-*")), [])
+        if os.name == "posix":
+            self.assertEqual(destination.stat().st_mode & 0o777, 0o600)
 
     def test_reject_invalid_database(self):
         invalid = self.base / "invalid.sqlite3"
