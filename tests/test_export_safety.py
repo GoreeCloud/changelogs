@@ -125,7 +125,8 @@ class ExportSafetyTests(unittest.TestCase):
                        description="# dangerous")
         code, output, error = self.invoke()
         self.assertEqual((code, error), (0, ""))
-        self.assertNotIn("<img", output)
+        self.assertIn("\\<img", output)
+        self.assertNotIn("\n### Added: <img", output)
         self.assertNotIn("\n# dangerous", output)
 
 
