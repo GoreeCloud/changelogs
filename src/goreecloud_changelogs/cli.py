@@ -4,7 +4,7 @@ import json
 import sqlite3
 from pathlib import Path
 import sys
-from .store import Store, KINDS, default_path
+from .store import Store, KINDS, default_path, audit_permissions
 from .backup import backup, restore, verify_backup
 
 def parser():
@@ -56,6 +56,7 @@ def parser():
     r.add_argument('--yes', action='store_true', help='Explicitly acknowledge replacement')
     r.add_argument('--dry-run', action='store_true', help='Validate restore source without changing or initializing the live database')
     r.add_argument('--recovery-backup', help='Create a verified, non-overwriting pre-restore snapshot at this path')
+    sub.add_parser("audit-permissions", help="Read-only database and parent directory privacy audit")
     v = sub.add_parser("verify-backup", help="Read-only backup integrity and schema check")
     v.add_argument("source")
     server = sub.add_parser("serve", help="Start token-authenticated loopback read-only API")
@@ -76,6 +77,10 @@ def markdown(rows):
 def main(argv=None):
     args = parser().parse_args(argv)
     try:
+        if args.command == "audit-permissions":
+            result = audit_permissions(args.db)
+            print(json.dumps(result, indent=2))
+            return 0 if result["secure"] else 1
         if args.command == "verify-backup":
             print(json.dumps(verify_backup(args.source), indent=2))
             return 0
