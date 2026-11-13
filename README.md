@@ -31,6 +31,19 @@ Deletion requires typing `delete` interactively, or explicitly passing `--yes` f
 
 Database defaults to `~/.local/share/goreecloud/changelogs.sqlite3`. Set `GOREE_CHANGELOGS_DB` or global `--db` to override. SQLite stores entries with product, version, kind, title, description, author, release date, JSON metadata, and creation/update timestamps. Filtering by product and version is supported.
 
+## Release notes and version history
+
+View all versions grouped by product, or filter one application/service. Release groups are ordered by latest recorded release date; versions are treated as literal strings (not assumed to follow semantic versioning):
+
+```sh
+goree-changelogs releases --product goreecloud-mesh --limit 25 --offset 0
+goree-changelogs release-notes goreecloud-mesh 0.1.0
+goree-changelogs release-notes goreecloud-mesh 0.1.0 --format json
+goree-changelogs release-notes goreecloud-mesh 0.1.0 > RELEASE_NOTES.md
+```
+
+The `releases` command reports each version's earliest and latest recorded release date, entry count, and counts by change kind. `release-notes` groups individual changes in familiar Added/Changed/Deprecated/Removed/Fixed/Security sections, escaping content as literal Markdown text to prevent accidental rendered HTML. A missing version or release larger than 10,000 entries fails rather than silently returning incomplete notes. The loopback API adds authenticated `GET /v1/releases?product=...&limit=...&offset=...`, keeping all endpoints read-only. Release notes contain whatever product names, authors and descriptions you recorded—review before publishing them.
+
 ## Portable JSON import (preview-first)
 
 Export your entries to inert UTF-8 JSON. Preview a JSON import **without creating a database** and then explicitly opt in to adding validated entries:
