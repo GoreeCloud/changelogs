@@ -19,7 +19,7 @@ from urllib.parse import parse_qs, urlsplit
 
 from .api import BoundedHTTPServer, MAX_REQUEST_TARGET
 from .hosted_auth import AuthFailed, AuthStore, COOKIE, SESSION_TTL, _password_bytes
-from .importer import _normalize, _reject_constant, _unique_pairs
+from .importer import _normalize, _fingerprint, _reject_constant, _unique_pairs, import_records
 from .pagination import entries_page
 from .releases import page_releases
 from .store import Store, audit_permissions
@@ -316,6 +316,30 @@ def make_hosted_handler(store, accounts, public_origin, *, allow_test_loopback_h
                 cookie = (f"{COOKIE}=; Path=/; Secure; HttpOnly; SameSite=Strict; "
                           "Max-Age=0") if kind == "web" else None
                 self._reply(200, {"logged_out": True}, cookie)
+                return
+            if url.path == "/v1/import":
+                if self._require(write=True) is None:
+                    return
+                try:
+                    document = self._json_input()
+                    if not isinstance(document, dict) or set(document) != {"entries"}:
+                        raise ValueError("Invalid import structure")
+                    rows = document["entries"]
+                    if not isinstance(rows, list) or not 1 <= len(rows) <= 100:
+                        raise ValueError("Import batch must contain 1-100 entries")
+                    normalized = [_normalize(row) for row in rows]
+                    if len({_fingerprint(row) for row in normalized}) != len(normalized):
+                        raise ValueError("Duplicate source rows")
+                except (ValueError, TypeError, UnicodeError, OverflowError,
+                        json.JSONDecodeError):
+                    self._reply(400, {"error": "Invalid import batch"})
+                    return
+                try:
+                    result = import_records(store, normalized)
+                except Exception:
+                    self._reply(500, {"error": "Import operation failed"})
+                    return
+                self._reply(200, result)
                 return
             if url.path != "/v1/entries":
                 self._reply(404, {"error": "Not found"})

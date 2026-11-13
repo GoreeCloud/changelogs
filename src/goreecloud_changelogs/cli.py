@@ -90,6 +90,12 @@ def parser():
     sub.add_parser("doctor", help="Read-only SQLite health and filesystem privacy diagnostics")
     v = sub.add_parser("verify-backup", help="Read-only backup integrity and schema check")
     v.add_argument("source")
+    migrate = sub.add_parser("migrate", help="Preview/send existing local CLI entries to self-hosted server")
+    migrate.add_argument("--source", required=True, help="Existing local SQLite changelog database")
+    migrate.add_argument("--limit", type=int, default=None, help="Explicit bounded migration chunk")
+    migrate.add_argument("--offset", type=int, default=0)
+    migrate.add_argument("--expect-sha256", help="Pin reviewed preview to exact SQLite snapshot")
+    migrate.add_argument("--yes", action="store_true", help="Confirm HTTPS upload to self-hosted server")
     login = sub.add_parser("login", help="Sign in to configured self-hosted server")
     login.add_argument("--username", required=True)
     host = sub.add_parser("host", help="Initialize or run the self-hosted multi-client server")
@@ -164,6 +170,25 @@ def main(argv=None):
             account_store.bootstrap(args.username, password)
             Store(db)
             print("Self-hosted workspace initialized. Configure HTTPS ingress before remote access.")
+            return 0
+        if args.command == "migrate":
+            if not args.server or args.db:
+                raise ValueError("Migration requires --server and --source (not --db)")
+            from .hosted_client import origin
+            from .hosted_migration import preview, upload
+            import hmac
+            remote = origin(args.server)
+            rows, parts, report = preview(args.source, args.limit, args.offset)
+            if not args.yes:
+                print(json.dumps(report, indent=2))
+                return 0
+            digest = (args.expect_sha256 or "").lower()
+            if not re.fullmatch(r"[0-9a-f]{64}", digest) or not hmac.compare_digest(
+                digest, report["sha256"]
+            ):
+                raise ValueError("Migration records changed since reviewed SHA-256 preview")
+            result = upload(remote, os.environ.get("GOREE_CHANGELOGS_REMOTE_TOKEN"), parts)
+            print(json.dumps({"dry_run": False, "sha256": digest, **result}, indent=2))
             return 0
         if args.server:
             if args.db:

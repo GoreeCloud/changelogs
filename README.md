@@ -34,6 +34,15 @@ goree-changelogs --server https://YOUR-APPROVED-DOMAIN add mesh 1.0.0 added "Fea
 
 See [self-hosted installation, client access and migration](docs/HOSTED_SERVER.md) for safe operational prerequisites. Hosting on an owned VPS or physical server is supported by the same service design; changing locations requires a reviewed database and account backup/restore, not a new cloud account.
 
+## Bringing older local CLI entries onto the hosted server
+
+Previously created local SQLite entries are not automatically uploaded. The new
+`goree-changelogs --server https://APPROVED-HOST migrate --source LOCAL.sqlite3`
+command previews them without network access, then supports SHA-256-pinned
+and explicitly confirmed HTTPS migration to the authoritative server. Each
+batch is validated transactionally and duplicates can be retried safely.
+See [legacy CLI migration](docs/HOSTED_MIGRATION.md).
+
 ## Usage
 
 ```sh
