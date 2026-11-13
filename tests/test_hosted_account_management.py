@@ -77,7 +77,7 @@ class HostedAccountManagementTests(unittest.TestCase):
         # Faster deterministic PBKDF2 substitute for storage-shape testing;
         # production iterations and authentication are tested elsewhere.
         with patch("goreecloud_changelogs.hosted_auth.hashlib.pbkdf2_hmac",
-                   return_value=b"\\0" * 32):
+                   return_value=bytes(32)):
             for _ in range(3):
                 with self.assertRaises(AuthFailed):
                     self.auth.authenticate("admin", "incorrect-password-2026")
@@ -101,7 +101,7 @@ class HostedAccountManagementTests(unittest.TestCase):
 
     def test_unknown_username_repeated_failures_still_lock(self):
         with patch("goreecloud_changelogs.hosted_auth.hashlib.pbkdf2_hmac",
-                   return_value=b"\\0" * 32):
+                   return_value=bytes(32)):
             for _ in range(6):
                 with self.assertRaises(AuthFailed):
                     self.auth.authenticate("not-provisioned",
