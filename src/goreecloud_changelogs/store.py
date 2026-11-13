@@ -101,6 +101,19 @@ class Store:
         with self.connect() as db:
             return [self._decode(row) for row in db.execute(sql, params).fetchall()]
 
+    def summary(self, product=None):
+        """Aggregate release activity without loading individual metadata."""
+        with self.connect() as db:
+            where = " WHERE product = ?" if product is not None else ""
+            params = (product,) if product is not None else ()
+            total = db.execute("SELECT COUNT(*) FROM entries" + where, params).fetchone()[0]
+            kinds = db.execute("SELECT kind, COUNT(*) AS count FROM entries" + where +
+                               " GROUP BY kind ORDER BY kind", params).fetchall()
+            products = db.execute("SELECT product, COUNT(*) AS count FROM entries" + where +
+                                  " GROUP BY product ORDER BY count DESC, product LIMIT 100", params).fetchall()
+            return {"total": total, "by_kind": {r["kind"]: r["count"] for r in kinds},
+                    "by_product": {r["product"]: r["count"] for r in products}}
+
     def get(self, entry_id):
         with self.connect() as db:
             row = db.execute("SELECT * FROM entries WHERE id = ?", (entry_id,)).fetchone()
