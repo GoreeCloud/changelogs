@@ -160,11 +160,12 @@ def main(argv=None):
             result = import_records(Store(args.db), entries)
             print(json.dumps({"dry_run": False, **result, "sha256": digest}, indent=2))
             return 0
-        store = Store(args.db)
         if args.command == "serve":
             from .api import serve
             serve(args.db, args.port, web=args.web)
-        elif args.command == "backup":
+            return 0
+        store = Store(args.db)
+        if args.command == "backup":
             print(backup(store, args.destination))
         elif args.command == "add":
             entry_id = store.add(args.product, args.version, args.kind, args.title,

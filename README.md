@@ -104,7 +104,7 @@ Exit code `0` means both the SQLite integrity check and the applicable local per
 
 ## Local read-only HTTP API
 
-Generate a secret token and keep it outside source control (for example, in your shell's secret environment configuration). The API **requires** a bearer token of at least 32 characters on every request, including health checks.
+Generate a secret token and keep it outside source control (for example, in your shell's secret environment configuration). The API **requires** a bearer token of at least 32 characters on every request, including health checks. The CLI validates that the token and port are acceptable before initializing a missing database; a refused listener does not create storage.
 
 ```sh
 export GOREE_CHANGELOGS_API_TOKEN="$(python -c 'import secrets; print(secrets.token_urlsafe(48))')"

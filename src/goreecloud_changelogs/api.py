@@ -204,7 +204,7 @@ def serve(db=None, port=8765, token=None, web=False):
     if not isinstance(port, int) or not 0 <= port <= 65535:
         raise ValueError("Port must be between 0 and 65535")
     token = token or os.environ.get("GOREE_CHANGELOGS_API_TOKEN")
-    if not token:
+    if not isinstance(token, str) or len(token) < 32:
         raise ValueError("Set GOREE_CHANGELOGS_API_TOKEN (32+ characters)")
     server = BoundedHTTPServer(("127.0.0.1", port), make_handler(Store(db), token, web=web))
     server.daemon_threads = True
