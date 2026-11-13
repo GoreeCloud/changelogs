@@ -23,3 +23,18 @@ jobs:
           for run in 1 2 3; do
             python -W error::ResourceWarning -m unittest discover -s tests -p 'test_backup.py' -q
           done
+
+  android-source:
+    name: Android debug build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
+      - name: Compile native Android reader
+        run: gradle --project-dir android-app :app:assembleDebug --no-daemon --stacktrace
