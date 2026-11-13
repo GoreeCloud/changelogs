@@ -51,3 +51,14 @@ button:disabled{opacity:.5;cursor:not-allowed}.authentication button{margin-top:
   .workspace-actions{width:100%;justify-content:flex-start}
   .workspace-actions>*{flex:1 0 auto}
 }
+
+/* Hosted release navigation: plain, accessible tabs and product/version summaries. */
+.view-tabs{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:22px 0 0}
+.view-tabs button{flex:0 0 auto;min-width:114px}
+.view-tabs button[aria-pressed="true"]{border-color:var(--accent);background:var(--surface-2);color:var(--text)}
+.toolbar-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.release-kinds{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.release-kind{border-radius:30px;border:1px solid var(--stroke);padding:5px 10px;font-size:.75rem;color:var(--muted)}
+.release-details{font-size:.85rem;color:var(--muted)}
+.release-open{margin-top:18px}
+@media(max-width:560px){.view-tabs{margin-top:12px}.view-tabs button{flex:1}}

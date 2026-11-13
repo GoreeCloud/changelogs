@@ -16,6 +16,8 @@
   let controller = null;
   let offset = 0;
   let hasMore = false;
+  let viewMode = "entries";
+  let versionFilter = "";
   const limit = 30;
   let saving = false;
   const setSaveStatus = (message, state = "") => {
@@ -53,6 +55,7 @@
     controller = null;
     username = ""; role = ""; csrf = "";
     offset = 0; hasMore = false;
+    viewMode = "entries"; versionFilter = "";
     $("entries").replaceChildren();
     $("password").value = "";
     $("create-form").reset();
@@ -81,11 +84,58 @@
     document.body.classList.add("is-authenticated");
     setSaveStatus("");
     offset = 0;
+    setView("entries", false);
     refresh();
   }
-  function render(entries) {
+  function renderRelease(release) {
+    const card = node("article", "entry");
+    const head = node("div", "entry-top");
+    head.append(node("span", "kind", release.version),
+                node("small", "", release.released_at));
+    const count = Number(release.entries) || 0;
+    const dates = release.first_released_at === release.released_at
+      ? release.released_at
+      : release.first_released_at + " to " + release.released_at;
+    card.append(head, node("h3", "", release.product),
+                node("p", "release-details", count + " " +
+                  (count === 1 ? "change" : "changes") + " · " + dates));
+    const kinds = node("div", "release-kinds");
+    for (const [kind, count] of Object.entries(release.by_kind || {})) {
+      kinds.append(node("span", "release-kind", kind + ": " + count));
+    }
+    card.append(kinds);
+    const open = node("button", "secondary release-open", "View changes");
+    open.type = "button";
+    open.addEventListener("click", () => {
+      $("product").value = release.product;
+      $("query").value = "";
+      $("kind").value = "";
+      versionFilter = release.version;
+      setView("entries");
+    });
+    card.append(open);
+    return card;
+  }
+  function setView(nextMode, reload = true) {
+    viewMode = nextMode;
+    offset = 0;
+    if (nextMode === "releases") versionFilter = "";
+    $("view-entries").setAttribute("aria-pressed", String(nextMode === "entries"));
+    $("view-releases").setAttribute("aria-pressed", String(nextMode === "releases"));
+    $("search-label").hidden = nextMode === "releases";
+    $("kind-label").hidden = nextMode === "releases";
+    $("query").disabled = nextMode === "releases";
+    $("kind").disabled = nextMode === "releases";
+    $("clear-version").hidden = nextMode !== "entries" || !versionFilter;
+    if (reload) refresh();
+  }
+  function render(entries, mode) {
     const fragment = document.createDocumentFragment();
     for (const entry of entries) {
+      if (mode === "releases") {
+        fragment.append(renderRelease(entry));
+        continue;
+      }
       const card = node("article", "entry");
       const head = node("div", "entry-top");
       head.append(node("span", "kind", entry.kind), node("small", "", entry.released_at));
@@ -95,7 +145,8 @@
       fragment.append(card);
     }
     $("entries").replaceChildren(fragment);
-    if (!entries.length) $("entries").append(node("p", "assist", "No matching changes."));
+    if (!entries.length) $("entries").append(node("p", "assist",
+      mode === "releases" ? "No matching releases." : "No matching changes."));
   }
   async function refresh() {
     if (!username) return;
@@ -107,23 +158,32 @@
     status("Loading shared changelogs…");
     try {
       const product = $("product").value.trim();
-      const query = $("query").value.trim();
-      const kind = $("kind").value;
+      const mode = viewMode;
+      const query = mode === "entries" ? $("query").value.trim() : "";
+      const kind = mode === "entries" ? $("kind").value : "";
       const params = new URLSearchParams({limit: String(limit), offset: String(offset)});
       if (product) params.set("product", product);
-      if (kind) params.set("kind", kind);
-      if (query) params.set("q", query);
-      const path = query ? "/v1/search?" : "/v1/entries?";
+      let path = "/v1/releases?";
+      if (mode === "entries") {
+        path = query ? "/v1/search?" : "/v1/entries?";
+        if (query) params.set("q", query);
+        if (kind) params.set("kind", kind);
+        if (!query && versionFilter) params.set("version", versionFilter);
+      }
       const data = await api(path + params.toString(), {signal: controller.signal});
       if (sequence !== loadSequence || epoch !== sessionEpoch) return;
-      render(data.entries);
+      const rows = mode === "releases" ? data.releases : data.entries;
+      render(rows, mode);
       hasMore = !!data.has_more;
       $("next").disabled = !hasMore;
       $("previous").disabled = offset === 0;
       $("page-label").textContent = "Page " + (Math.floor(offset / limit) + 1);
-      const count = data.entries.length;
+      const count = rows.length;
+      const singular = mode === "entries" ? "change" : "release";
       $("results-title").textContent = count + " " +
-        (count === 1 ? "change" : "changes") + " on this page";
+        (count === 1 ? singular : singular + "s") + " on this page" +
+        (mode === "entries" && versionFilter ? " · Version: " + versionFilter : "");
+      $("clear-version").hidden = mode !== "entries" || !versionFilter;
       status("Connected to your private server.");
     } catch (error) {
       if (sequence !== loadSequence || epoch !== sessionEpoch || error.name === "AbortError") return;
@@ -163,7 +223,12 @@
     }
   });
   $("filters").addEventListener("submit", event => {
-    event.preventDefault(); offset = 0; refresh();
+    event.preventDefault(); versionFilter = ""; offset = 0; refresh();
+  });
+  $("view-entries").addEventListener("click", () => setView("entries"));
+  $("view-releases").addEventListener("click", () => setView("releases"));
+  $("clear-version").addEventListener("click", () => {
+    versionFilter = ""; offset = 0; refresh();
   });
   $("reload").addEventListener("click", refresh);
   $("previous").addEventListener("click", () => {
