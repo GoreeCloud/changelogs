@@ -6,6 +6,7 @@ import stat
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
+from .metadata import encode_metadata
 
 KINDS = {"added", "changed", "fixed", "removed", "security", "deprecated", "other"}
 
@@ -118,7 +119,7 @@ class Store:
             cur = db.execute("""INSERT INTO entries
                 (product,version,kind,title,description,author,released_at,metadata,created_at,updated_at)
                 VALUES (?,?,?,?,?,?,?,?,?,?)""",
-                (product.strip(), version.strip(), kind, title.strip(), description, author, date, json.dumps(metadata), now, now))
+                (product.strip(), version.strip(), kind, title.strip(), description, author, date, encode_metadata(metadata), now, now))
             return cur.lastrowid
 
     def list(self, product=None, version=None, limit=100, offset=0):
@@ -191,7 +192,7 @@ class Store:
         if "metadata" in fields:
             if not isinstance(fields["metadata"], dict):
                 raise ValueError("Metadata must be a JSON object")
-            fields["metadata"] = json.dumps(fields["metadata"])
+            fields["metadata"] = encode_metadata(fields["metadata"])
         fields["updated_at"] = datetime.now(timezone.utc).isoformat()
         assignments = ", ".join(f"{key} = ?" for key in fields)
         with self.connect() as db:
