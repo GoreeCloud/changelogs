@@ -113,6 +113,9 @@ def parser():
     host_remove = host_sub.add_parser("user-remove", help="Remove a local account and revoke sessions")
     host_remove.add_argument("--data-dir", required=True)
     host_remove.add_argument("--username", required=True)
+    host_doctor = host_sub.add_parser("doctor",
+        help="Read-only health, privacy and schema audit for both hosted databases")
+    host_doctor.add_argument("--data-dir", required=True)
     host_backup = host_sub.add_parser("backup",
         help="Offline, private no-clobber backup of server data and account DBs")
     host_backup.add_argument("--data-dir", required=True)
@@ -142,6 +145,11 @@ def main(argv=None):
             if args.server or args.db:
                 raise ValueError("Host commands use --data-dir, not --server or --db")
             from .hosted_server import data_paths, serve_hosted
+            if args.host_command == "doctor":
+                from .hosted_diagnostics import diagnose_host
+                result = diagnose_host(args.data_dir)
+                print(json.dumps(result, indent=2))
+                return 0 if result["healthy"] else 1
             if args.host_command == "verify-backup":
                 from .hosted_backup import verify_host_backup
                 print(json.dumps(verify_host_backup(args.source), indent=2))

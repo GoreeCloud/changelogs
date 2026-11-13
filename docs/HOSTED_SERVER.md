@@ -58,6 +58,16 @@ The server always binds `127.0.0.1` even if provided an external origin. The `--
 
 An example `systemd` unit and reverse proxy route are in `ops/` for operator review; neither is installed automatically.
 
+## Read-only staging and startup diagnostics
+
+Before and after any authorized host rollout, run the non-mutating two-database preflight as the service identity:
+
+```sh
+goree-changelogs host doctor --data-dir /var/lib/goreecloud/changelogs
+```
+
+A successful report verifies private changelog and account storage, SQLite integrity/schema and entry metadata, valid local accounts and an administrator, plus limited aggregate counts. Failures return nonzero with sanitized error types, without usernames, tokens, raw changelog content or file paths. The example systemd unit also includes this command as an `ExecStartPre` safety check. It is a local host diagnostic, not a public unauthenticated health endpoint, a penetration test, or production deployment approval. SQLite itself may interact with WAL sidecars while reading.
+
 ## Web sign-in
 
 Visit `https://YOUR-APPROVED-CHANGELOGS-HOST/` after the gateway, TLS and backend are verified. Enter the locally bootstrapped username/password. The server sets a `Secure; HttpOnly; SameSite=Strict` host-only session cookie (12-hour absolute lifetime); the frontend does not store account passwords or tokens in local/session storage. A CSRF token is delivered through the authenticated same-origin API and required on browser writes and logout. The account can create a change within the web app, search and page the shared history.

@@ -34,6 +34,13 @@ goree-changelogs --server https://YOUR-APPROVED-DOMAIN add mesh 1.0.0 added "Fea
 
 See [self-hosted installation, client access and migration](docs/HOSTED_SERVER.md) for safe operational prerequisites. Hosting on an owned VPS or physical server is supported by the same service design; changing locations requires a reviewed database and account backup/restore, not a new cloud account.
 
+## Self-hosted staging preflight
+
+The v1.1 development CLI provides `goree-changelogs host doctor --data-dir
+HOST-DATA`, a read-only privacy/schema/account audit with sanitized JSON and
+a failing exit status on invalid storage. It runs before the host listener in
+the reviewed example service unit; no production service is installed by CI.
+
 ## Hosting backups, accounts and future server migration
 
 The **v1.1 development** hosted service stores changelog entries and local
