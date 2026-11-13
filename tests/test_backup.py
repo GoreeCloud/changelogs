@@ -27,6 +27,16 @@ class BackupTests(unittest.TestCase):
         restore(self.store, destination)
         self.assertEqual([r["title"] for r in self.store.list()], ["First"])
 
+    def test_backup_captures_committed_wal_records(self):
+        self.store.add("mesh", "1", "added", "Base")
+        with contextlib.closing(sqlite3.connect(self.store.path)) as connection:
+            connection.execute("PRAGMA journal_mode=WAL")
+        self.store.add("mesh", "2", "fixed", "Committed in WAL")
+        snapshot = self.base / "wal-snapshot.sqlite3"
+        backup(self.store, snapshot)
+        self.assertEqual(verify_backup(snapshot)["entries"], 2)
+        self.assertEqual(list(self.base.glob("wal-snapshot.sqlite3.partial-*")), [])
+
     def test_no_clobber(self):
         destination = self.base / "snapshot.sqlite3"
         backup(self.store, destination)
