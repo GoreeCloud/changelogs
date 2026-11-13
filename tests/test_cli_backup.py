@@ -31,6 +31,27 @@ class CLIRestoreTests(unittest.TestCase):
         self.assertEqual(self.invoke("restore", str(self.snapshot), "--yes"), 0)
         self.assertEqual([r["title"] for r in self.store.list()], ["Before"])
 
+    def test_recovery_snapshot_before_restore(self):
+        self.store.add("mesh", "1", "added", "Before")
+        self.assertEqual(self.invoke("backup", str(self.snapshot)), 0)
+        self.store.add("mesh", "2", "fixed", "After")
+        recovery = self.root / "recovery.sqlite3"
+        self.assertEqual(self.invoke("restore", str(self.snapshot), "--yes", "--recovery-backup", str(recovery)), 0)
+        self.assertEqual([r["title"] for r in self.store.list()], ["Before"])
+        from goreecloud_changelogs.backup import verify_backup, restore
+        self.assertEqual(verify_backup(recovery)["entries"], 2)
+        restore(self.store, recovery)
+        self.assertEqual(len(self.store.list()), 2)
+
+    def test_recovery_snapshot_collision_blocks_restore(self):
+        self.store.add("mesh", "1", "added", "Before")
+        self.assertEqual(self.invoke("backup", str(self.snapshot)), 0)
+        self.store.add("mesh", "2", "fixed", "After")
+        self.assertEqual(self.invoke("restore", str(self.snapshot), "--yes", "--recovery-backup", str(self.snapshot)), 1)
+        self.assertEqual(len(self.store.list()), 2)
+        self.assertEqual(self.invoke("restore", str(self.snapshot), "--yes", "--recovery-backup", str(self.db)), 1)
+        self.assertEqual(len(self.store.list()), 2)
+
     def test_backup_refuses_overwrite(self):
         self.assertEqual(self.invoke("backup", str(self.snapshot)), 0)
         self.assertEqual(self.invoke("backup", str(self.snapshot)), 1)
