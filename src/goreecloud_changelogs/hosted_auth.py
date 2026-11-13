@@ -23,6 +23,7 @@ SESSION_TTL = 12 * 3600
 COOKIE = "__Host-gc_changelogs_session"
 MAX_FAILED = 5
 LOCKOUT_SECONDS = 120
+MAX_UNKNOWN_FAILURE_ROWS = 256
 
 
 class AuthFailed(ValueError):
@@ -198,6 +199,18 @@ class AuthStore:
                     " VALUES(?,?,?) ON CONFLICT(username) DO UPDATE SET"
                     " failures=excluded.failures,locked_until=excluded.locked_until",
                     (user, failures, locked))
+                if row is None:
+                    # Limit persistent records for never-provisioned identities.
+                    # Existing account lockouts are never evicted by this bound.
+                    # No client IP addresses or request details are stored.
+                    db.execute(
+                        "DELETE FROM failed_logins WHERE username IN ("
+                        "SELECT f.username FROM failed_logins AS f "
+                        "LEFT JOIN users AS u ON u.username=f.username "
+                        "WHERE u.id IS NULL ORDER BY f.rowid DESC "
+                        "LIMIT -1 OFFSET ?)",
+                        (MAX_UNKNOWN_FAILURE_ROWS,),
+                    )
                 db.commit()
                 raise AuthFailed("Invalid credentials")
             db.execute("DELETE FROM failed_logins WHERE username=?", (user,))

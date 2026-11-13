@@ -8,7 +8,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from goreecloud_changelogs.cli import main
-from goreecloud_changelogs.hosted_auth import AuthFailed, AuthStore
+from goreecloud_changelogs.hosted_auth import AuthFailed, AuthStore, MAX_UNKNOWN_FAILURE_ROWS
 
 ADMIN_PASSWORD = "admin-secret-with-adequate-length"
 READER_PASSWORD = "reader-password-secret-2026"
@@ -72,6 +72,46 @@ class HostedAccountManagementTests(unittest.TestCase):
             self.auth.remove_user("absent")
         with self.assertRaises((sqlite3.DatabaseError, ValueError)):
             self.auth.add_user("admin", READER_PASSWORD, "reader")
+
+    def test_unknown_account_lockout_storage_is_bounded_without_evicting_admin(self):
+        # Faster deterministic PBKDF2 substitute for storage-shape testing;
+        # production iterations and authentication are tested elsewhere.
+        with patch("goreecloud_changelogs.hosted_auth.hashlib.pbkdf2_hmac",
+                   return_value=b"\\0" * 32):
+            for _ in range(3):
+                with self.assertRaises(AuthFailed):
+                    self.auth.authenticate("admin", "incorrect-password-2026")
+            for n in range(MAX_UNKNOWN_FAILURE_ROWS + 75):
+                with self.assertRaises(AuthFailed):
+                    self.auth.authenticate("absent-%04d" % n,
+                                           "incorrect-password-2026")
+        with self.auth.connect() as db:
+            unknown = db.execute(
+                "SELECT COUNT(*) FROM failed_logins AS f "
+                "LEFT JOIN users AS u ON u.username=f.username "
+                "WHERE u.id IS NULL").fetchone()[0]
+            admin = db.execute(
+                "SELECT failures FROM failed_logins WHERE username='admin'"
+            ).fetchone()[0]
+        self.assertEqual(unknown, MAX_UNKNOWN_FAILURE_ROWS)
+        self.assertEqual(admin, 3)
+        # Normal credentials still work, clearing that account's failures.
+        self.assertEqual(self.auth.authenticate("admin", ADMIN_PASSWORD)["role"],
+                         "admin")
+
+    def test_unknown_username_repeated_failures_still_lock(self):
+        with patch("goreecloud_changelogs.hosted_auth.hashlib.pbkdf2_hmac",
+                   return_value=b"\\0" * 32):
+            for _ in range(6):
+                with self.assertRaises(AuthFailed):
+                    self.auth.authenticate("not-provisioned",
+                                           "incorrect-password-2026")
+        with self.auth.connect() as db:
+            row = db.execute(
+                "SELECT failures,locked_until FROM failed_logins "
+                "WHERE username='not-provisioned'").fetchone()
+        self.assertEqual(row["failures"], 5)
+        self.assertGreater(row["locked_until"], 0)
 
     def test_cli_password_prompts_and_local_account_creation(self):
         output, errors = io.StringIO(), io.StringIO()
