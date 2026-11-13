@@ -10,7 +10,8 @@ from importlib.resources import files
 from urllib.parse import parse_qs, urlsplit
 
 from .store import Store
-from .releases import list_releases
+from .releases import page_releases
+from .pagination import entries_page
 
 MAX_LIMIT = 1000
 WEB_FILES = {
@@ -153,11 +154,11 @@ def make_handler(store, token, web=False):
                         raise ValueError("Releases accepts only product, limit and offset")
                     limit = int(params.get("limit", ["100"])[0])
                     offset = int(params.get("offset", ["0"])[0])
-                    releases = list_releases(store,
-                                             product=params.get("product", [None])[0],
-                                             limit=limit, offset=offset)
+                    releases, has_more = page_releases(
+                        store, product=params.get("product", [None])[0],
+                        limit=limit, offset=offset)
                     self._reply(200, {"releases": releases, "limit": limit,
-                                      "offset": offset, "has_more": len(releases) == limit})
+                                      "offset": offset, "has_more": has_more})
                     return
                 limit = int(params.get("limit", ["100"])[0])
                 offset = int(params.get("offset", ["0"])[0])
@@ -166,20 +167,17 @@ def make_handler(store, token, web=False):
                 if url.path == "/v1/search":
                     if "version" in params or "q" not in params:
                         raise ValueError("Search requires q and does not accept version")
-                    rows = store.search(params["q"][0],
-                                        product=params.get("product", [None])[0],
-                                        limit=limit, offset=offset)
-                else:
-                    if "q" in params:
-                        raise ValueError("q is only supported by search")
-                    rows = store.list(product=params.get("product", [None])[0],
-                                      version=params.get("version", [None])[0],
-                                      limit=limit, offset=offset)
+                elif "q" in params:
+                    raise ValueError("q is only supported by search")
+                rows, has_more = entries_page(
+                    store, product=params.get("product", [None])[0],
+                    version=params.get("version", [None])[0],
+                    query=params.get("q", [None])[0], limit=limit, offset=offset)
             except (ValueError, OverflowError):
                 self._reply(400, {"error": "Invalid query"})
                 return
             self._reply(200, {"entries": rows, "limit": limit, "offset": offset,
-                              "has_more": len(rows) == limit})
+                              "has_more": has_more})
 
         def do_POST(self):
             self._reply(405, {"error": "Read-only API"})
