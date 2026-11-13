@@ -115,6 +115,56 @@ class AuthStore:
                        " VALUES(?,?,?,?,?)", (user, salt, digest, "admin", int(time.time())))
             db.commit()
 
+    def add_user(self, username, password, role="reader"):
+        """Local-only user provisioning; never exposed as a public endpoint."""
+        if role not in ROLES:
+            raise ValueError("Invalid account role")
+        user = self.validate_username(username)
+        raw = _password_bytes(password)
+        salt = os.urandom(16)
+        digest = hashlib.pbkdf2_hmac("sha256", raw, salt, ITERATIONS)
+        with closing(self.connect()) as db:
+            db.execute("BEGIN IMMEDIATE")
+            if not db.execute("SELECT 1 FROM users LIMIT 1").fetchone():
+                raise ValueError("Bootstrap the first administrator before adding accounts")
+            db.execute("INSERT INTO users(username,salt,password_hash,role,created_at)"
+                       " VALUES(?,?,?,?,?)", (user, salt, digest, role, int(time.time())))
+            db.commit()
+
+    def change_password(self, username, password):
+        """Rotate a local password and revoke all existing login sessions."""
+        user = self.validate_username(username)
+        raw = _password_bytes(password)
+        salt = os.urandom(16)
+        digest = hashlib.pbkdf2_hmac("sha256", raw, salt, ITERATIONS)
+        with closing(self.connect()) as db:
+            db.execute("BEGIN IMMEDIATE")
+            record = db.execute("SELECT id FROM users WHERE username=?", (user,)).fetchone()
+            if record is None:
+                raise ValueError("Account not found")
+            db.execute("UPDATE users SET salt=?,password_hash=? WHERE id=?",
+                       (salt, digest, record["id"]))
+            db.execute("DELETE FROM sessions WHERE user_id=?", (record["id"],))
+            db.execute("DELETE FROM failed_logins WHERE username=?", (user,))
+            db.commit()
+
+    def remove_user(self, username):
+        """Remove a user and revoke their sessions; preserve last administrator."""
+        user = self.validate_username(username)
+        with closing(self.connect()) as db:
+            db.execute("BEGIN IMMEDIATE")
+            record = db.execute(
+                "SELECT id,role FROM users WHERE username=?", (user,)).fetchone()
+            if record is None:
+                raise ValueError("Account not found")
+            if record["role"] == "admin" and db.execute(
+                "SELECT COUNT(*) FROM users WHERE role='admin'").fetchone()[0] <= 1:
+                raise ValueError("Cannot remove the last administrator")
+            db.execute("DELETE FROM sessions WHERE user_id=?", (record["id"],))
+            db.execute("DELETE FROM failed_logins WHERE username=?", (user,))
+            db.execute("DELETE FROM users WHERE id=?", (record["id"],))
+            db.commit()
+
     @staticmethod
     def validate_username(username):
         if not isinstance(username, str) or not USERNAME.fullmatch(username.lower()):

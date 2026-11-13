@@ -97,6 +97,16 @@ def parser():
     host_init = host_sub.add_parser("init", help="Bootstrap a self-hosted administrator")
     host_init.add_argument("--data-dir", required=True)
     host_init.add_argument("--username", default="admin")
+    host_add = host_sub.add_parser("user-add", help="Locally add a reader or administrator")
+    host_add.add_argument("--data-dir", required=True)
+    host_add.add_argument("--username", required=True)
+    host_add.add_argument("--role", choices=("reader", "admin"), default="reader")
+    host_pass = host_sub.add_parser("user-password", help="Rotate local user password and revoke sessions")
+    host_pass.add_argument("--data-dir", required=True)
+    host_pass.add_argument("--username", required=True)
+    host_remove = host_sub.add_parser("user-remove", help="Remove a local account and revoke sessions")
+    host_remove.add_argument("--data-dir", required=True)
+    host_remove.add_argument("--username", required=True)
     host_serve = host_sub.add_parser("serve", help="Run authenticated web/API listener on loopback")
     host_serve.add_argument("--data-dir", required=True)
     host_serve.add_argument("--origin", default=os.environ.get("GOREE_CHANGELOGS_PUBLIC_ORIGIN"),
@@ -122,6 +132,26 @@ def main(argv=None):
                 return 0
             from .hosted_auth import AuthStore
             db, account_path = data_paths(args.data_dir)
+            if args.host_command in ("user-add", "user-password", "user-remove"):
+                accounts = AuthStore(account_path)
+                if args.host_command in ("user-add", "user-password"):
+                    password = getpass.getpass("New password (minimum 14 UTF-8 bytes): ")
+                    if password != getpass.getpass("Confirm new password: "):
+                        raise ValueError("Passwords do not match")
+                    if args.host_command == "user-add":
+                        accounts.add_user(args.username, password, args.role)
+                    else:
+                        accounts.change_password(args.username, password)
+                    print("Account updated; active sessions revoked on password change.")
+                    return 0
+                if not sys.stdin.isatty():
+                    raise ValueError("Account removal requires interactive confirmation")
+                if input(f"Remove account {args.username}? Type 'remove': ") != "remove":
+                    print("Cancelled")
+                    return 1
+                accounts.remove_user(args.username)
+                print("Account removed; sessions revoked.")
+                return 0
             if db.exists() or account_path.exists():
                 raise ValueError("Host data directory is already initialized")
             password = getpass.getpass("Choose administrator password (14+ characters): ")

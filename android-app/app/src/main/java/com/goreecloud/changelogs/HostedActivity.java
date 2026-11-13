@@ -331,9 +331,11 @@ public final class HostedActivity extends Activity {
     }
 
     private void signOut() {
-        // Discard local credentials first. The server's opaque token expires
-        // within 12 hours; a future revision should complete remote revocation.
-        ++sessionGeneration;
+        // Immediately invalidate local callbacks and credentials, then try
+        // revoking the opaque session on the HTTPS server.
+        final String server = origin;
+        final String priorToken = token;
+        final long session = ++sessionGeneration;
         ++requestGeneration;
         token = "";
         origin = "";
@@ -344,7 +346,24 @@ public final class HostedActivity extends Activity {
         loginPanel.setVisibility(View.VISIBLE);
         signIn.setEnabled(true);
         passwordInput.setText("");
-        status.setText("Signed out on this device. Server session may remain active until expiry.");
+        status.setText("Signed out locally. Revoking server session…");
+        if (!server.isEmpty() && !priorToken.isEmpty()) {
+            worker.execute(() -> {
+                boolean revoked = false;
+                try {
+                    call(server, "/v1/auth/logout", priorToken, new JSONObject());
+                    revoked = true;
+                } catch (Exception ignored) {
+                    // Never disclose credentials or private endpoints in logs.
+                }
+                final boolean done = revoked;
+                runOnUiThread(() -> {
+                    if (isFinishing() || isDestroyed() || session != sessionGeneration) return;
+                    status.setText(done ? "Signed out. Server session revoked." :
+                        "Signed out locally; server revocation unconfirmed. Token expires in 12 hours.");
+                });
+            });
+        }
     }
 
     @Override protected void onDestroy() {

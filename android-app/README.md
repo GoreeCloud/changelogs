@@ -4,6 +4,6 @@ The default launcher now uses `HostedActivity`, a **development-only** native HT
 
 The old loopback-only `MainActivity` source remains as an unlaunched compatibility preview. The default launcher does not require USB or `adb reverse` if a reviewed HTTPS gateway and the central service are available. It is deliberately **not** a stable/signed Android release, nor proof of a deployed identity service. A real-device sign-in, login failure, certificate rejection, rotation/revocation, accessibility and privacy test remains required.
 
-The app currently discards credentials locally on sign-out; server-side revocation of the Android session is a follow-up and the token otherwise expires within 12 hours. Avoid signing in on an untrusted device.
+The app clears credentials immediately on sign-out and attempts authenticated HTTPS revocation. If offline, it explicitly reports that server revocation is unconfirmed; the token expires within 12 hours. Avoid signing in on an untrusted device.
 
 Build locally with Android Studio or Gradle `gradle --project-dir android-app :app:assembleDebug`. Minimum API 26, target SDK 35, Java 17. The manifest disallows backup and global cleartext access.
