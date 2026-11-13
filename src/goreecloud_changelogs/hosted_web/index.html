@@ -33,11 +33,15 @@
           <button type="button" id="logout" class="secondary">Sign out</button>
         </div>
       </div>
+      <nav class="view-tabs" aria-label="Changelog views">
+        <button id="view-entries" type="button" class="secondary" aria-pressed="true">Changes</button>
+        <button id="view-releases" type="button" class="secondary" aria-pressed="false">Releases</button>
+      </nav>
       <div class="panel">
         <form id="filters" class="filters">
           <label>Product<input id="product" maxlength="128" placeholder="All products"></label>
-          <label>Search<input id="query" maxlength="256" type="search" placeholder="Search changes"></label>
-          <label>Change type<select id="kind">
+          <label id="search-label">Search<input id="query" maxlength="256" type="search" placeholder="Search changes"></label>
+          <label id="kind-label">Change type<select id="kind">
             <option value="">All types</option><option value="added">Added</option>
             <option value="changed">Changed</option><option value="fixed">Fixed</option>
             <option value="security">Security</option><option value="removed">Removed</option>
@@ -45,7 +49,9 @@
           </select></label>
           <button type="submit" class="secondary">Apply</button>
         </form>
-        <div class="section-toolbar"><p id="results-title">Recent changes</p><button type="button" id="reload" class="secondary">Refresh</button></div>
+        <div class="section-toolbar"><p id="results-title">Recent changes</p>
+          <div class="toolbar-actions"><button type="button" id="clear-version" class="secondary" hidden>Clear version</button>
+            <button type="button" id="reload" class="secondary">Refresh</button></div></div>
         <div id="entries" class="entry-list" aria-live="polite"></div>
         <div class="pages"><button id="previous" type="button" class="secondary" disabled>Previous</button>
           <span id="page-label">Page 1</span><button id="next" type="button" class="secondary" disabled>Next</button></div>
