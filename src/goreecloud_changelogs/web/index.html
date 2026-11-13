@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-gc-theme="dark" data-gc-accent="iris" data-gc-contrast="normal">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -25,8 +25,12 @@
       </section>
       <section class="library" id="library" hidden aria-labelledby="library-title">
         <div class="library-heading"><div><p class="eyebrow">RELEASE JOURNAL</p><h2 id="library-title">Change history</h2></div><button class="quiet" type="button" id="disconnect">Disconnect</button></div>
-        <form id="filter-form" class="glass filters"><label>Product or service<input id="product-input" type="search" maxlength="128" placeholder="All products"></label><label>Search changes<input id="search-input" type="search" maxlength="256" placeholder="Search titles and details"></label><button type="submit">Apply filters</button></form>
-        <div class="toolbar"><p id="result-count">Latest changes</p><button class="quiet" type="button" id="reload">Refresh</button></div>
+        <div class="view-tabs" role="group" aria-label="Browse history">
+          <button type="button" id="view-entries" class="mode-button" aria-pressed="true">Changes</button>
+          <button type="button" id="view-releases" class="mode-button" aria-pressed="false">Releases</button>
+        </div>
+        <form id="filter-form" class="glass filters"><label>Product or service<input id="product-input" type="search" maxlength="128" placeholder="All products"></label><label id="search-label">Search changes<input id="search-input" type="search" maxlength="256" placeholder="Search titles and details"></label><button type="submit">Apply filters</button></form>
+        <div class="toolbar"><p id="result-count">Latest changes</p><div class="toolbar-actions"><button class="quiet" type="button" id="clear-version" hidden>Clear version filter</button><button class="quiet" type="button" id="reload">Refresh</button></div></div>
         <div id="entries" class="entries" aria-live="polite"></div>
         <div class="pagination"><button type="button" id="previous" class="quiet" disabled>Previous</button><span id="page-label">Page 1</span><button type="button" id="next" class="quiet" disabled>Next</button></div>
       </section>

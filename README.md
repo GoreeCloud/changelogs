@@ -129,7 +129,7 @@ export GOREE_CHANGELOGS_API_TOKEN="$(python -c 'import secrets; print(secrets.to
 goree-changelogs serve --web --port 8765
 ```
 
-Open `http://127.0.0.1:8765/` on **the same computer**, then paste the token. The UI supports viewing, searching, filtering, and paging records. It is **read-only**: add/edit/delete stay in the CLI. The page itself is unprivileged static HTML; API data always requires the bearer token. The token is held in browser-tab memory, never placed in a URL or local storage. The UI is not published to the public internet and no remote web access is enabled.
+Open `http://127.0.0.1:8765/` on **the same computer**, then paste the token. The UI supports viewing, searching, filtering, and paging records, browsing grouped releases, and opening one release's changes. It aborts and invalidates stale requests on disconnect, mode changes, and refresh so late responses cannot repopulate a cleared session. Its small offline semantic-color bridge references verified `GoreeCloud/gc-ui` alpha tokens; full design-system migration and device/browser acceptance remain open. It is **read-only**: add/edit/delete stay in the CLI. The page itself is unprivileged static HTML; API data always requires the bearer token. The token is held in browser-tab memory, never placed in a URL or local storage. The UI is not published to the public internet and no remote web access is enabled.
 
 The API also supports authenticated `GET /v1/entries/{id}` to view a specific entry, in addition to the existing list, search and summary routes. All HTTP write methods remain disabled. HTTP is restricted to `127.0.0.1`; never expose this service over a tunnel or reverse proxy without a reviewed encrypted, authenticated gateway and GoreeCloud Identity/privilege design.
 
