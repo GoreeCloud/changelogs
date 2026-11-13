@@ -64,9 +64,10 @@ def data_paths(directory):
     return root / "changelogs.sqlite3", root / "accounts.sqlite3"
 
 
-def make_hosted_handler(store, accounts, public_origin):
-    """Dependency-injected local listener; no public listener or auth bypass."""
+def make_hosted_handler(store, accounts, public_origin, *, allow_test_loopback_host=False):
+    """Require exact expected Host in production; test loopback is opt-in only."""
     origin = validate_origin(public_origin)
+    trusted_host = urlsplit(origin).netloc.lower()
     assets = {}
     root = files("goreecloud_changelogs").joinpath("hosted_web")
     for path, (filename, mime) in WEB_ASSETS.items():
@@ -74,6 +75,19 @@ def make_hosted_handler(store, accounts, public_origin):
 
     class HostedHandler(BaseHTTPRequestHandler):
         protocol_version = "HTTP/1.1"
+
+        def parse_request(self):
+            if not super().parse_request():
+                return False
+            hosts = self.headers.get_all("Host", [])
+            allowed = (len(hosts) == 1 and len(hosts[0]) <= 255
+                       and hosts[0].lower() == trusted_host)
+            if not allowed and allow_test_loopback_host and len(hosts) == 1:
+                allowed = hosts[0].lower() == f"127.0.0.1:{self.server.server_port}"
+            if not allowed:
+                self._reply(421, {"error": "Unrecognized request host"})
+                return False
+            return True
 
         def _headers(self, mime, length, cookie=None):
             self.send_header("Content-Type", mime)

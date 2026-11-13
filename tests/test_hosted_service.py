@@ -34,7 +34,7 @@ class SelfHostedServiceTests(unittest.TestCase):
         self.accounts.bootstrap("Admin", PASSWORD)
         self.server = ThreadingHTTPServer(
             ("127.0.0.1", 0),
-            make_hosted_handler(self.entries, self.accounts, ORIGIN)
+            make_hosted_handler(self.entries, self.accounts, ORIGIN, allow_test_loopback_host=True)
         )
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
         self.thread.start()
@@ -165,6 +165,29 @@ class SelfHostedServiceTests(unittest.TestCase):
                                    {"product":"mesh","version":"1",
                                     "kind":"not-valid","title":"Unsafe"},
                                    headers)[0],400)
+
+    def test_untrusted_host_rejected_before_login_or_assets(self):
+        strict = ThreadingHTTPServer(("127.0.0.1", 0),
+                      make_hosted_handler(self.entries, self.accounts, ORIGIN))
+        thread = threading.Thread(target=strict.serve_forever, daemon=True)
+        thread.start()
+        try:
+            conn = http.client.HTTPConnection("127.0.0.1", strict.server_port, timeout=3)
+            conn.request("GET", "/")
+            response = conn.getresponse()
+            self.assertEqual(response.status, 421)
+            response.read()
+            conn.close()
+            conn = http.client.HTTPConnection("127.0.0.1", strict.server_port, timeout=3)
+            conn.request("GET", "/", headers={"Host": "changelogs.example.test"})
+            response = conn.getresponse()
+            self.assertEqual(response.status, 200)
+            response.read()
+            conn.close()
+        finally:
+            strict.shutdown()
+            strict.server_close()
+            thread.join(timeout=5)
 
     def test_non_https_public_origin_refused(self):
         for url in ("http://0.0.0.0","http://localhost:8876",
