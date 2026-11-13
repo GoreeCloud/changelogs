@@ -17,7 +17,7 @@ goree-changelogs --help
 
 ```sh
 goree-changelogs add goreecloud-mesh 0.1.0 added "Initial sync engine" --description "Local-first synchronization" --author GoreeCloud
-goree-changelogs list --product goreecloud-mesh
+goree-changelogs list --product goreecloud-mesh --limit 50 --offset 0
 goree-changelogs search "synchronization" --product goreecloud-mesh
 goree-changelogs summary --product goreecloud-mesh
 goree-changelogs show 1
@@ -63,7 +63,7 @@ curl -H "Authorization: Bearer $GOREE_CHANGELOGS_API_TOKEN" \
   "http://127.0.0.1:8765/v1/entries?product=goreecloud-mesh&limit=100"
 ```
 
-Endpoints: `GET /health`, `GET /v1/entries`, and `GET /v1/search?q=sync` (literal case-insensitive search across product, version, title, description and author) with optional `product`, `version`, and `limit` (1–1000). The API also exposes `GET /v1/summary` for aggregate counts by change kind and product (optional `product` filter). The server binds **only to 127.0.0.1**. It does not provide cross-origin browser access or write endpoints. Do not expose it through an unauthenticated reverse proxy or tunnel. Token access is not equivalent to GoreeCloud Identity integration.
+Endpoints: `GET /health`, `GET /v1/entries`, and `GET /v1/search?q=sync` (literal case-insensitive search across product, version, title, description and author) with optional `product`, `version`, and `limit` (1–1000). List and search endpoints support `offset` (0–1,000,000) for bounded pagination and return `limit`, `offset`, and a conservative `has_more` flag (a full page may still be the final page). The API also exposes `GET /v1/summary` for aggregate counts by change kind and product (optional `product` filter). The server binds **only to 127.0.0.1**. It does not provide cross-origin browser access or write endpoints. Do not expose it through an unauthenticated reverse proxy or tunnel. Token access is not equivalent to GoreeCloud Identity integration.
 
 ## Tests
 
