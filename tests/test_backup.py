@@ -4,6 +4,7 @@ import io
 import json
 import os
 import tempfile
+import threading
 import unittest
 from pathlib import Path
 from goreecloud_changelogs.backup import backup, restore, verify_backup
@@ -36,6 +37,34 @@ class BackupTests(unittest.TestCase):
         backup(self.store, snapshot)
         self.assertEqual(verify_backup(snapshot)["entries"], 2)
         self.assertEqual(list(self.base.glob("wal-snapshot.sqlite3.partial-*")), [])
+
+    def test_backup_under_concurrent_committed_writes(self):
+        self.store.add("mesh", "0", "added", "Seed")
+        started = threading.Event()
+        failures = []
+        def writer():
+            try:
+                started.set()
+                for index in range(35):
+                    self.store.add("mesh", str(index + 1), "fixed", "Concurrent")
+            except Exception as exc:
+                failures.append(exc)
+        thread = threading.Thread(target=writer)
+        thread.start()
+        try:
+            self.assertTrue(started.wait(3))
+            destination = self.base / "concurrent.sqlite3"
+            backup(self.store, destination)
+            result = verify_backup(destination)
+            self.assertGreaterEqual(result["entries"], 1)
+            self.assertLessEqual(result["entries"], 36)
+            with contextlib.closing(sqlite3.connect(destination)) as connection:
+                self.assertEqual(connection.execute("PRAGMA integrity_check").fetchone()[0], "ok")
+        finally:
+            thread.join(timeout=10)
+        self.assertFalse(thread.is_alive())
+        self.assertEqual(failures, [])
+        self.assertEqual(len(self.store.list()), 36)
 
     def test_no_clobber(self):
         destination = self.base / "snapshot.sqlite3"
