@@ -2,6 +2,7 @@
 import json
 import os
 import sqlite3
+import stat
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
@@ -10,6 +11,31 @@ KINDS = {"added", "changed", "fixed", "removed", "security", "deprecated", "othe
 
 def default_path():
     return Path(os.environ.get("GOREE_CHANGELOGS_DB", str(Path.home() / ".local" / "share" / "goreecloud" / "changelogs.sqlite3"))).expanduser()
+
+def audit_permissions(path=None):
+    """Read-only POSIX privacy audit; never create or chmod any path."""
+    database = Path(path).expanduser() if path else default_path()
+    findings = []
+    for label, candidate, expected_directory in (
+        ("directory", database.parent, True),
+        ("database", database, False),
+    ):
+        if candidate.is_symlink():
+            findings.append(f"{label}: symbolic link")
+            continue
+        try:
+            mode = candidate.stat().st_mode
+        except FileNotFoundError:
+            findings.append(f"{label}: missing")
+            continue
+        if expected_directory and not stat.S_ISDIR(mode):
+            findings.append(f"{label}: not a directory")
+        elif not expected_directory and not stat.S_ISREG(mode):
+            findings.append(f"{label}: not a regular file")
+        elif os.name == "posix" and mode & (0o077 if expected_directory else 0o077):
+            findings.append(f"{label}: group/other access permitted")
+    return {"secure": not findings, "findings": findings}
+
 
 class Store:
     def __init__(self, path=None):
