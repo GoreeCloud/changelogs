@@ -1,12 +1,14 @@
 """Command-line interface for GoreeCloud Changelogs."""
 import argparse
 import json
+import re
 import sqlite3
 from pathlib import Path
 import sys
 from .store import Store, KINDS, default_path, audit_permissions
 from .backup import backup, restore, verify_backup
 from .importer import read_import, import_records
+from .metadata import parse_metadata
 from .releases import list_releases, release_details, markdown_release
 
 def parser():
@@ -61,6 +63,7 @@ def parser():
     export.add_argument("--limit", type=int, default=10000)
     imp = sub.add_parser("import", help="Preview or atomically import a bounded JSON changelog export")
     imp.add_argument("source", help="UTF-8 JSON array from 'export --format json'")
+    imp.add_argument("--expect-sha256", help="Pin source bytes to a reviewed preview SHA-256")
     confirm = imp.add_mutually_exclusive_group()
     confirm.add_argument("--yes", action="store_true", help="Write validated entries; duplicates are skipped")
     confirm.add_argument("--dry-run", action="store_true", help="Validate only (the default)")
@@ -145,6 +148,12 @@ def main(argv=None):
             return 0
         if args.command == "import":
             entries, digest = read_import(args.source)
+            if args.expect_sha256 is not None:
+                expected = args.expect_sha256.lower()
+                if not re.fullmatch(r"[0-9a-f]{64}", expected):
+                    raise ValueError("--expect-sha256 requires exactly 64 hexadecimal characters")
+                if expected != digest:
+                    raise ValueError("Import source differs from expected SHA-256; no data imported")
             if not args.yes:
                 print(json.dumps({"dry_run": True, "validated": len(entries), "sha256": digest}, indent=2))
                 return 0
@@ -159,7 +168,7 @@ def main(argv=None):
             print(backup(store, args.destination))
         elif args.command == "add":
             entry_id = store.add(args.product, args.version, args.kind, args.title,
-                                 args.description, args.author, args.date, json.loads(args.metadata))
+                                 args.description, args.author, args.date, parse_metadata(args.metadata))
             print(entry_id)
         elif args.command == "list":
             print(json.dumps(store.list(args.product, args.version, args.limit, args.offset), indent=2))
@@ -183,7 +192,7 @@ def main(argv=None):
             if args.date is not None:
                 fields["released_at"] = args.date
             if args.metadata is not None:
-                fields["metadata"] = json.loads(args.metadata)
+                fields["metadata"] = parse_metadata(args.metadata)
             if not store.update(args.id, **fields):
                 raise ValueError("Entry not found")
             print("Updated")

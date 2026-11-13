@@ -29,7 +29,7 @@ goree-changelogs delete 1
 
 Deletion requires typing `delete` interactively, or explicitly passing `--yes` for automation. Back up the database before deletion.
 
-Database defaults to `~/.local/share/goreecloud/changelogs.sqlite3`. Set `GOREE_CHANGELOGS_DB` or global `--db` to override. SQLite stores entries with product, version, kind, title, description, author, release date, JSON metadata, and creation/update timestamps. Filtering by product and version is supported.
+Database defaults to `~/.local/share/goreecloud/changelogs.sqlite3`. Set `GOREE_CHANGELOGS_DB` or global `--db` to override. SQLite stores entries with product, version, kind, title, description, author, release date, JSON metadata, and creation/update timestamps. Filtering by product and version is supported. JSON metadata is a strictly parsed object; duplicate keys, NaN/Infinity, non-JSON values and metadata larger than 64 KiB are rejected before insertion or update.
 
 ## Release notes and version history
 
@@ -51,10 +51,10 @@ Export your entries to inert UTF-8 JSON. Preview a JSON import **without creatin
 ```sh
 goree-changelogs export --format json > changelogs.json
 goree-changelogs --db ./restored.sqlite3 import changelogs.json
-goree-changelogs --db ./restored.sqlite3 import changelogs.json --yes
+goree-changelogs --db ./restored.sqlite3 import changelogs.json --yes --expect-sha256 YOUR_PREVIEW_SHA256
 ```
 
-The default import mode is a read-only validation preview (equivalent to `--dry-run`) showing the validated record count and SHA-256 of the input bytes. `--yes` opens the target SQLite database only after all rows pass validation. A single transaction imports entries without overwriting existing rows; an exact match of product, version, kind, title, description, author, release date, and JSON metadata is skipped, even if metadata key order differs. IDs remain database-local; exported creation and modification times are preserved. Duplicate records *within the source* are rejected rather than silently collapsed.
+The default import mode is a read-only validation preview (equivalent to `--dry-run`) showing the validated record count and SHA-256 of the input bytes. Pass that 64-character value with `--expect-sha256` when using `--yes` to reject a changed source before opening or initializing the destination database; omit the option only when input pinning is not needed. `--yes` opens the target SQLite database only after all rows pass validation. A single transaction imports entries without overwriting existing rows; an exact match of product, version, kind, title, description, author, release date, and JSON metadata is skipped, even if metadata key order differs. IDs remain database-local; exported creation and modification times are preserved. Duplicate records *within the source* are rejected rather than silently collapsed.
 
 To limit untrusted imports, the importer requires a regular, non-symlink file, valid UTF-8, a JSON array of at most 5,000 entries and at most 8 MiB, known entry fields, a JSON metadata object, valid ISO 8601 dates, and bounded field lengths. Duplicate JSON keys and non-finite values are rejected. The importer does not evaluate data as code or access the network. Preview does not ensure that a later import will have the same duplicate count if the destination is modified in between. Inspect the data before importing; do not include credentials or private information in a public changelog export.
 
