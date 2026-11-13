@@ -22,10 +22,12 @@ def parser():
     listing.add_argument("--product")
     listing.add_argument("--version")
     listing.add_argument("--limit", type=int, default=100)
+    listing.add_argument("--offset", type=int, default=0)
     search = sub.add_parser("search", help="Search changelog text")
     search.add_argument("query")
     search.add_argument("--product")
     search.add_argument("--limit", type=int, default=100)
+    search.add_argument("--offset", type=int, default=0)
     summary = sub.add_parser("summary", help="Summarize entries by product and kind")
     summary.add_argument("--product")
     show = sub.add_parser("show", help="Show one entry")
@@ -83,9 +85,9 @@ def main(argv=None):
                                  args.description, args.author, args.date, json.loads(args.metadata))
             print(entry_id)
         elif args.command == "list":
-            print(json.dumps(store.list(args.product, args.version, args.limit), indent=2))
+            print(json.dumps(store.list(args.product, args.version, args.limit, args.offset), indent=2))
         elif args.command == "search":
-            print(json.dumps(store.search(args.query, args.product, args.limit), indent=2))
+            print(json.dumps(store.search(args.query, args.product, args.limit, args.offset), indent=2))
         elif args.command == "summary":
             print(json.dumps(store.summary(args.product), indent=2))
         elif args.command == "show":
