@@ -4,6 +4,7 @@ import json
 import os
 import re
 import secrets
+import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from importlib.resources import files
 from urllib.parse import parse_qs, urlsplit
@@ -17,6 +18,60 @@ WEB_FILES = {
     "/ui/app.js": ("app.js", "text/javascript; charset=utf-8"),
     "/ui/app.css": ("app.css", "text/css; charset=utf-8"),
 }
+MAX_CONNECTIONS = 16
+CONNECTION_TIMEOUT = 8
+MAX_REQUEST_TARGET = 4096
+
+
+class BoundedHTTPServer(ThreadingHTTPServer):
+    """Loopback-oriented HTTP server with bounded workers and idle sockets."""
+
+    daemon_threads = True
+    request_queue_size = MAX_CONNECTIONS
+
+    def __init__(self, address, handler, max_connections=MAX_CONNECTIONS,
+                 connection_timeout=CONNECTION_TIMEOUT):
+        if type(max_connections) is not int or not 1 <= max_connections <= 256:
+            raise ValueError("max_connections must be between 1 and 256")
+        if not isinstance(connection_timeout, (int, float)) or not 0 < connection_timeout <= 60:
+            raise ValueError("connection_timeout must be between 0 and 60 seconds")
+        self._slots = threading.BoundedSemaphore(max_connections)
+        self._connection_timeout = connection_timeout
+        super().__init__(address, handler)
+
+    def get_request(self):
+        request, address = super().get_request()
+        request.settimeout(self._connection_timeout)
+        return request, address
+
+    def process_request(self, request, client_address):
+        if not self._slots.acquire(blocking=False):
+            # Send no private data or token; avoid spawning an unbounded thread.
+            try:
+                request.sendall(
+                    b"HTTP/1.1 503 Service Unavailable\r\n"
+                    b"Content-Length: 0\r\n"
+                    b"Cache-Control: no-store\r\n"
+                    b"Connection: close\r\n\r\n"
+                )
+            except OSError:
+                pass
+            finally:
+                self.shutdown_request(request)
+            return
+        try:
+            super().process_request(request, client_address)
+        except BaseException:
+            self._slots.release()
+            raise
+
+    def process_request_thread(self, request, client_address):
+        try:
+            super().process_request_thread(request, client_address)
+        finally:
+            self._slots.release()
+
+
 CSP = ("default-src 'none'; base-uri 'none'; form-action 'none'; "
        "frame-ancestors 'none'; connect-src 'self'; script-src 'self'; "
        "style-src 'self'; img-src 'self'")
@@ -50,6 +105,9 @@ def make_handler(store, token, web=False):
             self.wfile.write(body)
 
         def do_GET(self):
+            if len(self.path) > MAX_REQUEST_TARGET:
+                self._reply(414, {"error": "Request target too long"})
+                return
             url = urlsplit(self.path)
             if url.path in assets and not url.query and not url.fragment:
                 body, mime = assets[url.path]
@@ -80,8 +138,9 @@ def make_handler(store, token, web=False):
                 self._reply(404, {"error": "Not found"})
                 return
             try:
-                params = parse_qs(url.query, keep_blank_values=True,
-                                  strict_parsing=True, max_num_fields=5)
+                params = (parse_qs(url.query, keep_blank_values=True,
+                                   strict_parsing=True, max_num_fields=5)
+                          if url.query else {})
                 if set(params) - {"product", "version", "limit", "offset", "q"} or any(len(v) != 1 for v in params.values()):
                     raise ValueError("Invalid query parameters")
                 if url.path == "/v1/summary":
@@ -147,7 +206,7 @@ def serve(db=None, port=8765, token=None, web=False):
     token = token or os.environ.get("GOREE_CHANGELOGS_API_TOKEN")
     if not token:
         raise ValueError("Set GOREE_CHANGELOGS_API_TOKEN (32+ characters)")
-    server = ThreadingHTTPServer(("127.0.0.1", port), make_handler(Store(db), token, web=web))
+    server = BoundedHTTPServer(("127.0.0.1", port), make_handler(Store(db), token, web=web))
     server.daemon_threads = True
     try:
         print("Changelogs read-only listener on http://127.0.0.1:%d%s" %
