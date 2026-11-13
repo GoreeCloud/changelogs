@@ -3,6 +3,7 @@ import argparse
 import json
 import re
 import sqlite3
+from datetime import datetime
 from pathlib import Path
 import sys
 from .store import Store, KINDS, default_path, audit_permissions
@@ -161,12 +162,45 @@ def main(argv=None):
             from .api import serve
             serve(args.db, args.port, web=args.web)
             return 0
+        # Reject malformed or unconfirmed mutations before Store() can
+        # initialize a previously missing database and parent directories.
+        add_metadata = None
+        edit_fields = None
+        if args.command == "add":
+            if not all(value.strip() for value in (args.product, args.version, args.title)):
+                raise ValueError("Product, version and title are required")
+            if args.date:
+                datetime.fromisoformat(args.date.replace("Z", "+00:00"))
+            add_metadata = parse_metadata(args.metadata)
+        elif args.command == "edit":
+            edit_fields = {
+                key: getattr(args, key)
+                for key in ("product", "version", "kind", "title", "description", "author")
+                if getattr(args, key) is not None
+            }
+            for key in ("product", "version", "title"):
+                if key in edit_fields and not edit_fields[key].strip():
+                    raise ValueError(f"{key} cannot be empty")
+            if args.date is not None:
+                datetime.fromisoformat(args.date.replace("Z", "+00:00"))
+                edit_fields["released_at"] = args.date
+            if args.metadata is not None:
+                edit_fields["metadata"] = parse_metadata(args.metadata)
+            if not edit_fields:
+                raise ValueError("No valid update fields")
+        elif args.command == "delete" and not args.yes:
+            if not sys.stdin.isatty():
+                raise ValueError("Use --yes for noninteractive deletion")
+            if input(f"Delete entry {args.id}? Type 'delete' to confirm: ") != "delete":
+                print("Cancelled")
+                return 1
+            args.yes = True
         store = Store(args.db)
         if args.command == "backup":
             print(backup(store, args.destination))
         elif args.command == "add":
             entry_id = store.add(args.product, args.version, args.kind, args.title,
-                                 args.description, args.author, args.date, parse_metadata(args.metadata))
+                                 args.description, args.author, args.date, add_metadata)
             print(entry_id)
         elif args.command == "list":
             print(json.dumps(store.list(args.product, args.version, args.limit, args.offset), indent=2))
@@ -186,21 +220,10 @@ def main(argv=None):
                 raise ValueError("Entry not found")
             print(json.dumps(entry, indent=2))
         elif args.command == "edit":
-            fields = {key: getattr(args, key) for key in ("product", "version", "kind", "title", "description", "author") if getattr(args, key) is not None}
-            if args.date is not None:
-                fields["released_at"] = args.date
-            if args.metadata is not None:
-                fields["metadata"] = parse_metadata(args.metadata)
-            if not store.update(args.id, **fields):
+            if not store.update(args.id, **edit_fields):
                 raise ValueError("Entry not found")
             print("Updated")
         elif args.command == "delete":
-            if not args.yes:
-                if not sys.stdin.isatty():
-                    raise ValueError("Use --yes for noninteractive deletion")
-                if input(f"Delete entry {args.id}? Type 'delete' to confirm: ") != "delete":
-                    print("Cancelled")
-                    return 1
             if not store.delete(args.id):
                 raise ValueError("Entry not found")
             print("Deleted")

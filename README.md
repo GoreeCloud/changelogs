@@ -27,7 +27,7 @@ goree-changelogs export --format json --output changelogs.json
 goree-changelogs delete 1
 ```
 
-Deletion requires typing `delete` interactively, or explicitly passing `--yes` for automation. Back up the database before deletion.
+Deletion requires typing `delete` interactively, or explicitly passing `--yes` for automation. Malformed add/edit inputs and refused or cancelled deletes are rejected before the CLI initializes storage in an otherwise missing database location. Back up the database before deletion.
 
 Database defaults to `~/.local/share/goreecloud/changelogs.sqlite3`. Set `GOREE_CHANGELOGS_DB` or global `--db` to override. SQLite stores entries with product, version, kind, title, description, author, release date, JSON metadata, and creation/update timestamps. Filtering by product and version is supported. JSON metadata is a strictly parsed object; duplicate keys, NaN/Infinity, non-JSON values and metadata larger than 64 KiB are rejected before insertion or update.
 
