@@ -76,7 +76,7 @@ Check the database and its containing directory without modifying either path:
 goree-changelogs audit-permissions
 ```
 
-On POSIX, the audit flags group/other access, missing paths, symbolic links, and unexpected file types. It returns JSON and exits nonzero when findings exist. This is a privacy check, not a complete filesystem security audit: review ancestor directories, ACLs, ownership, backups, and encryption separately. No automatic permission changes are performed.
+On POSIX, the audit flags group/other access, missing paths, symbolic links, and unexpected file types, including present SQLite `-wal`, `-shm`, and `-journal` sidecars. Newly created database and backup parent directories are initialized private (`0700` on POSIX); existing directory permissions remain unchanged. It returns JSON and exits nonzero when findings exist. This is a privacy check, not a complete filesystem security audit: review ancestor directories, ACLs, ownership, backups, and encryption separately. No automatic permission changes are performed.
 
 ## Local read-only HTTP API
 
@@ -156,7 +156,7 @@ No MIPS integration or remote service is currently claimed.
 
 ## Security
 
-The CLI uses local SQLite without application-level encryption. Newly created database files use owner-only permissions (`0600` on POSIX systems); permissions on existing databases are not automatically changed. Protect containing directories and existing files with OS permissions, disk encryption, and backups. Never put secrets into changelog metadata. Do not expose the database publicly. This is a development baseline, not a security-certified release.
+The CLI uses local SQLite without application-level encryption. Newly created database files use owner-only permissions (`0600` on POSIX systems), and new immediate containing directories default to `0700`; permissions on existing databases and directories are not automatically changed. Direct symlink parents are refused, but this does not replace a full ancestor-path/ACL audit. Protect containing directories and existing files with OS permissions, disk encryption, and backups. Never put secrets into changelog metadata. Do not expose the database publicly. This is a development baseline, not a security-certified release.
 
 ## License
 

@@ -33,7 +33,11 @@ def backup(store, destination):
     destination = Path(destination).expanduser()
     if destination.exists() or destination.is_symlink():
         raise ValueError("Destination already exists; backups never overwrite")
-    destination.parent.mkdir(parents=True, exist_ok=True)
+    if destination.parent.is_symlink():
+        raise ValueError("Backup parent directory must not be a symbolic link")
+    destination.parent.mkdir(parents=True, mode=0o700, exist_ok=True)
+    if destination.parent.is_symlink():
+        raise ValueError("Backup parent directory must not be a symbolic link")
     # Atomic, unpredictable creation prevents predictable-name symlink races.
     fd, temp_name = tempfile.mkstemp(prefix=destination.name + ".partial-", dir=destination.parent)
     os.close(fd)

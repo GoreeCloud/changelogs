@@ -19,6 +19,9 @@ def audit_permissions(path=None):
     for label, candidate, expected_directory in (
         ("directory", database.parent, True),
         ("database", database, False),
+        ("wal", Path(str(database) + "-wal"), False),
+        ("shared-memory", Path(str(database) + "-shm"), False),
+        ("journal", Path(str(database) + "-journal"), False),
     ):
         if candidate.is_symlink():
             findings.append(f"{label}: symbolic link")
@@ -26,7 +29,8 @@ def audit_permissions(path=None):
         try:
             mode = candidate.stat().st_mode
         except FileNotFoundError:
-            findings.append(f"{label}: missing")
+            if label in ("directory", "database"):
+                findings.append(f"{label}: missing")
             continue
         if expected_directory and not stat.S_ISDIR(mode):
             findings.append(f"{label}: not a directory")
@@ -40,7 +44,13 @@ def audit_permissions(path=None):
 class Store:
     def __init__(self, path=None):
         self.path = Path(path) if path else default_path()
-        self.path.parent.mkdir(parents=True, exist_ok=True)
+        # New parent directories should default to private, regardless of umask.
+        # Do not modify modes of directories or databases that already exist.
+        if self.path.parent.is_symlink():
+            raise ValueError("Database parent directory must not be a symbolic link")
+        self.path.parent.mkdir(parents=True, mode=0o700, exist_ok=True)
+        if self.path.parent.is_symlink():
+            raise ValueError("Database parent directory must not be a symbolic link")
         if self.path.is_symlink():
             raise ValueError("Database path must not be a symbolic link")
         self._secure_new_database()
