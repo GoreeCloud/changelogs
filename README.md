@@ -78,6 +78,17 @@ goree-changelogs audit-permissions
 
 On POSIX, the audit flags group/other access, missing paths, symbolic links, and unexpected file types, including present SQLite `-wal`, `-shm`, and `-journal` sidecars. Newly created database and backup parent directories are initialized private (`0700` on POSIX); existing directory permissions remain unchanged. It returns JSON and exits nonzero when findings exist. This is a privacy check, not a complete filesystem security audit: review ancestor directories, ACLs, ownership, backups, and encryption separately. No automatic permission changes are performed.
 
+## Local database doctor
+
+Inspect SQLite integrity, schema compatibility, record count and POSIX filesystem privacy in one JSON report:
+
+```sh
+goree-changelogs doctor
+goree-changelogs --db ./archive.sqlite3 doctor
+```
+
+Exit code `0` means both the SQLite integrity check and the applicable local permission audit passed. Exit code `1` signals missing/invalid data, exposed directory or file permissions, or another finding. This command does **not** initialize a missing database or change existing permissions. It reports diagnostic status, not a cybersecurity certification, comprehensive ancestor/ACL assessment or release approval. For live WAL databases, SQLite may need its normal shared-memory sidecars to perform read-only checks; use a consistent offline backup for isolated verification.
+
 ## Local read-only HTTP API
 
 Generate a secret token and keep it outside source control (for example, in your shell's secret environment configuration). The API **requires** a bearer token of at least 32 characters on every request, including health checks.

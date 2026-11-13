@@ -63,6 +63,7 @@ def parser():
     r.add_argument('--dry-run', action='store_true', help='Validate restore source without changing or initializing the live database')
     r.add_argument('--recovery-backup', help='Create a verified, non-overwriting pre-restore snapshot at this path')
     sub.add_parser("audit-permissions", help="Read-only database and parent directory privacy audit")
+    sub.add_parser("doctor", help="Read-only SQLite health and filesystem privacy diagnostics")
     v = sub.add_parser("verify-backup", help="Read-only backup integrity and schema check")
     v.add_argument("source")
     server = sub.add_parser("serve", help="Start token-authenticated loopback read-only API")
@@ -88,6 +89,20 @@ def main(argv=None):
             result = audit_permissions(args.db)
             print(json.dumps(result, indent=2))
             return 0 if result["secure"] else 1
+        if args.command == "doctor":
+            # No Store() construction: never initialize or chmod a missing live DB.
+            selected = Path(args.db).expanduser() if args.db else default_path()
+            permissions = audit_permissions(selected)
+            try:
+                verified = verify_backup(selected)
+                integrity = {"ok": True, "entries": verified["entries"]}
+            except (ValueError, OSError, sqlite3.DatabaseError) as exc:
+                # Avoid displaying raw DB content, sensitive paths or SQLite error strings.
+                integrity = {"ok": False, "reason": type(exc).__name__}
+            healthy = permissions["secure"] and integrity["ok"]
+            print(json.dumps({"healthy": healthy, "integrity": integrity,
+                              "permissions": permissions}, indent=2))
+            return 0 if healthy else 1
         if args.command == "verify-backup":
             print(json.dumps(verify_backup(args.source), indent=2))
             return 0
