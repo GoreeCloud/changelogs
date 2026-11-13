@@ -51,8 +51,8 @@ def backup(store, destination):
 
 def restore(store, source):
     source = _validate_source(source)
-    if source.resolve() == store.path.resolve():
-        raise ValueError("Source and destination databases must differ")
+    if source.samefile(store.path):
+        raise ValueError("Source and destination databases must differ (including hard links)")
     # sqlite3 backup API copies a consistent snapshot into the existing database.
     # Caller must explicitly acknowledge that current records will be replaced.
     with closing(sqlite3.connect(source.resolve().as_uri() + "?mode=ro", uri=True)) as incoming:
