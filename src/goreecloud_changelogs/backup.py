@@ -21,6 +21,14 @@ def _validate_source(path):
             raise ValueError("Backup does not contain a compatible changelog schema")
     return path
 
+def verify_backup(source):
+    """Validate an existing backup without modifying it or creating a live database."""
+    path = _validate_source(source)
+    with closing(sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True)) as db:
+        count = db.execute("SELECT COUNT(*) FROM entries").fetchone()[0]
+    return {"valid": True, "entries": count}
+
+
 def backup(store, destination):
     destination = Path(destination).expanduser()
     if destination.exists() or destination.is_symlink():
