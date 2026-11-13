@@ -9,6 +9,7 @@ from importlib.resources import files
 from urllib.parse import parse_qs, urlsplit
 
 from .store import Store
+from .releases import list_releases
 
 MAX_LIMIT = 1000
 WEB_FILES = {
@@ -75,7 +76,7 @@ def make_handler(store, token, web=False):
                 entry = store.get(int(match.group(1)))
                 self._reply(200, {"entry": entry}) if entry else self._reply(404, {"error": "Not found"})
                 return
-            if url.path not in ("/v1/entries", "/v1/search", "/v1/summary"):
+            if url.path not in ("/v1/entries", "/v1/search", "/v1/summary", "/v1/releases"):
                 self._reply(404, {"error": "Not found"})
                 return
             try:
@@ -87,6 +88,17 @@ def make_handler(store, token, web=False):
                     if set(params) - {"product"}:
                         raise ValueError("Summary accepts only product")
                     self._reply(200, store.summary(product=params.get("product", [None])[0]))
+                    return
+                if url.path == "/v1/releases":
+                    if set(params) - {"product", "limit", "offset"}:
+                        raise ValueError("Releases accepts only product, limit and offset")
+                    limit = int(params.get("limit", ["100"])[0])
+                    offset = int(params.get("offset", ["0"])[0])
+                    releases = list_releases(store,
+                                             product=params.get("product", [None])[0],
+                                             limit=limit, offset=offset)
+                    self._reply(200, {"releases": releases, "limit": limit,
+                                      "offset": offset, "has_more": len(releases) == limit})
                     return
                 limit = int(params.get("limit", ["100"])[0])
                 offset = int(params.get("offset", ["0"])[0])

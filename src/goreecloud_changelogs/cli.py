@@ -7,6 +7,7 @@ import sys
 from .store import Store, KINDS, default_path, audit_permissions
 from .backup import backup, restore, verify_backup
 from .importer import read_import, import_records
+from .releases import list_releases, release_details, markdown_release
 
 def parser():
     p = argparse.ArgumentParser(prog="goree-changelogs", description="Self-hosted changelog management")
@@ -31,6 +32,14 @@ def parser():
     search.add_argument("--product")
     search.add_argument("--limit", type=int, default=100)
     search.add_argument("--offset", type=int, default=0)
+    releases = sub.add_parser("releases", help="List releases grouped by product and version")
+    releases.add_argument("--product")
+    releases.add_argument("--limit", type=int, default=100)
+    releases.add_argument("--offset", type=int, default=0)
+    notes = sub.add_parser("release-notes", help="Render one release as safe Markdown or JSON")
+    notes.add_argument("product")
+    notes.add_argument("version")
+    notes.add_argument("--format", choices=("markdown", "json"), default="markdown")
     summary = sub.add_parser("summary", help="Summarize entries by product and kind")
     summary.add_argument("--product")
     show = sub.add_parser("show", help="Show one entry")
@@ -158,6 +167,12 @@ def main(argv=None):
             print(json.dumps(store.search(args.query, args.product, args.limit, args.offset), indent=2))
         elif args.command == "summary":
             print(json.dumps(store.summary(args.product), indent=2))
+        elif args.command == "releases":
+            print(json.dumps(list_releases(store, args.product, args.limit, args.offset), indent=2))
+        elif args.command == "release-notes":
+            release = release_details(store, args.product, args.version)
+            print(json.dumps(release, indent=2) if args.format == "json"
+                  else markdown_release(release), end="")
         elif args.command == "show":
             entry = store.get(args.id)
             if entry is None:
