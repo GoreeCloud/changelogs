@@ -39,18 +39,25 @@ def make_handler(store, token):
             if url.path == "/health":
                 self._reply(200, {"status": "ok"})
                 return
-            if url.path != "/v1/entries":
+            if url.path not in ("/v1/entries", "/v1/search"):
                 self._reply(404, {"error": "Not found"})
                 return
             try:
-                params = parse_qs(url.query, keep_blank_values=True, strict_parsing=True, max_num_fields=3)
-                if set(params) - {"product", "version", "limit"} or any(len(v) != 1 for v in params.values()):
+                params = parse_qs(url.query, keep_blank_values=True, strict_parsing=True, max_num_fields=4)
+                if set(params) - {"product", "version", "limit", "q"} or any(len(v) != 1 for v in params.values()):
                     raise ValueError("Invalid query parameters")
                 limit = int(params.get("limit", ["100"])[0])
                 if not 1 <= limit <= MAX_LIMIT:
                     raise ValueError("Invalid limit")
-                rows = store.list(product=params.get("product", [None])[0],
-                                  version=params.get("version", [None])[0], limit=limit)
+                if url.path == "/v1/search":
+                    if "version" in params or "q" not in params:
+                        raise ValueError("Search requires q and does not accept version")
+                    rows = store.search(params["q"][0], product=params.get("product", [None])[0], limit=limit)
+                else:
+                    if "q" in params:
+                        raise ValueError("q is only supported by search")
+                    rows = store.list(product=params.get("product", [None])[0],
+                                      version=params.get("version", [None])[0], limit=limit)
             except (ValueError, OverflowError):
                 self._reply(400, {"error": "Invalid query"})
                 return
