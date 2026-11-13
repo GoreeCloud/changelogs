@@ -4,7 +4,7 @@ import json
 import sqlite3
 from pathlib import Path
 import sys
-from .store import Store, KINDS
+from .store import Store, KINDS, default_path
 from .backup import backup, restore, verify_backup
 
 def parser():
@@ -81,8 +81,8 @@ def main(argv=None):
             return 0
         if args.command == "restore" and args.dry_run:
             result = verify_backup(args.source)
-            selected_db = Path(args.db).expanduser() if args.db else Store.default_path() if hasattr(Store, "default_path") else None
-            if selected_db is not None and Path(args.source).expanduser().resolve() == selected_db.resolve():
+            selected_db = Path(args.db).expanduser() if args.db else default_path()
+            if Path(args.source).expanduser().resolve() == selected_db.resolve():
                 raise ValueError("Source and destination databases must differ")
             print(json.dumps({"dry_run": True, **result}, indent=2))
             return 0
