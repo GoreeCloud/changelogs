@@ -51,6 +51,8 @@ jobs:
         run: |
           node --check src/goreecloud_changelogs/hosted_web/app.js
           node --check src/goreecloud_changelogs/web/app.js
+      - name: Test hosted session and release navigation
+        run: node --test tests/hosted_web_browser.test.cjs
 
   wheel-smoke:
     name: Source-absent wheel smoke
