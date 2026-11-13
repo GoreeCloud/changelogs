@@ -80,6 +80,27 @@ class Store:
             rows = db.execute("SELECT * FROM entries" + where + " ORDER BY released_at DESC, id DESC LIMIT ?", (*params, limit)).fetchall()
             return [self._decode(row) for row in rows]
 
+    def search(self, query, product=None, limit=100):
+        """Literal case-insensitive search across changelog text fields."""
+        if not isinstance(query, str) or not query.strip() or len(query) > 256:
+            raise ValueError("Search query must contain 1-256 characters")
+        if not isinstance(limit, int) or not 1 <= limit <= 1000:
+            raise ValueError("Limit must be between 1 and 1000")
+        needle = query.strip().lower()
+        # instr() performs literal matching; unlike LIKE, % and _ are not wildcards.
+        params = [needle] * 5
+        sql = """SELECT * FROM entries WHERE
+            (instr(lower(product), ?) > 0 OR instr(lower(version), ?) > 0 OR
+             instr(lower(title), ?) > 0 OR instr(lower(description), ?) > 0 OR
+             instr(lower(author), ?) > 0)"""
+        if product is not None:
+            sql += " AND product = ?"
+            params.append(product)
+        sql += " ORDER BY released_at DESC, id DESC LIMIT ?"
+        params.append(limit)
+        with self.connect() as db:
+            return [self._decode(row) for row in db.execute(sql, params).fetchall()]
+
     def get(self, entry_id):
         with self.connect() as db:
             row = db.execute("SELECT * FROM entries WHERE id = ?", (entry_id,)).fetchone()
