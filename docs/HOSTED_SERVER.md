@@ -72,7 +72,7 @@ A successful report verifies private changelog and account storage, SQLite integ
 
 Visit `https://YOUR-APPROVED-CHANGELOGS-HOST/` after the gateway, TLS and backend are verified. Enter the locally bootstrapped username/password. The server sets a `Secure; HttpOnly; SameSite=Strict` host-only session cookie (12-hour absolute lifetime); the frontend does not store account passwords or tokens in local/session storage. A CSRF token is delivered through the authenticated same-origin API and required on browser writes and logout. The account can create a change within the web app, search and page the shared history.
 
-Use a modern browser; login over plain HTTP from a remote device is unsupported. Session logout revokes the web token server-side.
+Use a modern browser; login over plain HTTP from a remote device is unsupported. Session logout revokes the web token server-side. The browser temporarily blocks another sign-in while logout is in flight so a late cookie-clearing response cannot invalidate a new session; the logout request has an eight-second abort deadline. If revocation cannot be confirmed, the page explicitly says so. This is a browser-session ordering safeguard, not proof that an interrupted server-side revocation succeeded.
 
 ## CLI direct writes and reads
 

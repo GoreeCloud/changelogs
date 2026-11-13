@@ -20,6 +20,7 @@
   let versionFilter = "";
   const limit = 30;
   let saving = false;
+  let logoutPending = false;
   const setSaveStatus = (message, state = "") => {
     const target = $("save-status");
     target.textContent = message;
@@ -193,6 +194,8 @@
   }
   $("login-form").addEventListener("submit", async event => {
     event.preventDefault();
+    // An in-flight Set-Cookie from logout must not race a fresh login.
+    if (logoutPending) return;
     const epoch = ++sessionEpoch;
     const usernameInput = $("username").value.trim();
     const password = $("password").value;
@@ -210,16 +213,30 @@
     }
   });
   $("logout").addEventListener("click", async () => {
+    if (logoutPending) return;
     const saved = csrf;
     clearSession();
-    status("Signed out locally.");
+    const epoch = sessionEpoch;
+    logoutPending = true;
+    $("login-submit").disabled = true;
+    status("Signed out locally. Revoking server session…");
+    const abort = new AbortController();
+    const deadline = setTimeout(() => abort.abort(), 8000);
     try {
       await api("/v1/auth/logout", {
-        method: "POST", body: "{}", headers: {"X-GoreeCloud-CSRF": saved}
+        method: "POST", body: "{}", signal: abort.signal,
+        headers: {"X-GoreeCloud-CSRF": saved}
       });
+      if (epoch === sessionEpoch) status("Signed out. Server session revoked.");
     } catch (_error) {
-      // Local display is cleared even if a network logout cannot complete.
-      status("Session cleared here; server logout could not be confirmed.");
+      // Never let an old logout failure overwrite a different session.
+      if (epoch === sessionEpoch) {
+        status("Session cleared here; server logout could not be confirmed.");
+      }
+    } finally {
+      clearTimeout(deadline);
+      logoutPending = false;
+      $("login-submit").disabled = false;
     }
   });
   $("filters").addEventListener("submit", event => {

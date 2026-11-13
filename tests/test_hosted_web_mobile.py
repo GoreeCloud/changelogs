@@ -31,6 +31,18 @@ class HostedMobileExperienceTests(unittest.TestCase):
         self.assertIn('document.body.classList.add("is-authenticated")', self.js)
         self.assertIn('initialEpoch === sessionEpoch', self.js)
 
+    def test_logout_awaits_cookie_revocation_before_allowing_new_login(self):
+        self.assertIn('id="login-submit"', self.html)
+        self.assertIn("let logoutPending = false;", self.js)
+        self.assertIn("if (logoutPending) return;", self.js)
+        self.assertIn('$("login-submit").disabled = true;', self.js)
+        self.assertIn('$("login-submit").disabled = false;', self.js)
+        self.assertIn("setTimeout(() => abort.abort(), 8000)", self.js)
+        self.assertIn("clearTimeout(deadline);", self.js)
+        self.assertIn("if (epoch === sessionEpoch)", self.js)
+        self.assertIn('status("Signed out. Server session revoked.")', self.js)
+        self.assertIn('"X-GoreeCloud-CSRF": saved', self.js)
+
     def test_admin_mobile_shortcut_respects_role_and_touch_target(self):
         self.assertIn('id="jump-create"', self.html)
         self.assertIn('$("jump-create").hidden = role !== "admin";', self.js)
