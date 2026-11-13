@@ -48,6 +48,16 @@ goree-changelogs restore ./snapshot.sqlite3 --yes --recovery-backup ./before-res
 
 Backups are checked for SQLite integrity and compatible entry columns. `verify-backup` performs a non-mutating check and prints JSON containing `valid` and `entries`; it does not initialize a live database. A dry run validates the source and reports its entry count but does not lock the live database or guarantee that a subsequent restore will succeed. The restore command requires explicit confirmation. The optional `--recovery-backup` creates a validated, non-overwriting snapshot of the current database before replacing records. This is not an automatic rollback mechanism, and concurrent writers must be stopped during recovery. These commands operate on the selected local database; no remote backup or cloud synchronization is implied.
 
+## Local privacy audit
+
+Check the database and its containing directory without modifying either path:
+
+```sh
+goree-changelogs audit-permissions
+```
+
+On POSIX, the audit flags group/other access, missing paths, symbolic links, and unexpected file types. It returns JSON and exits nonzero when findings exist. This is a privacy check, not a complete filesystem security audit: review ancestor directories, ACLs, ownership, backups, and encryption separately. No automatic permission changes are performed.
+
 ## Local read-only HTTP API
 
 Generate a secret token and keep it outside source control (for example, in your shell's secret environment configuration). The API **requires** a bearer token of at least 32 characters on every request, including health checks.
