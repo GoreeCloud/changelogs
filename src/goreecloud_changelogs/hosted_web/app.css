@@ -1,6 +1,20 @@
-:root{font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;color-scheme:dark;
- --canvas:#0c1120;--surface:#161f31;--surface-2:#212c41;--text:#f1f5fb;--muted:#b7c5da;
- --stroke:#42516d;--focus:#becbff;--accent:#b4a8ff;--accent-ink:#15102c}
+/* Offline dark semantic bridge from GoreeCloud/gc-ui generated tokens,
+   verified at 9e51ef78196e41bb7e402014dac482aff5e65941.
+   Not full design-system integration; no external runtime stylesheet. */
+:root[data-gc-theme="dark"]{
+ --gc-font-ui:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+ --gc-canvas:#0D121D;--gc-surface:#171D2A;--gc-surface-tonal:#252D3D;
+ --gc-text:#F2F4FB;--gc-text-soft:#CED5E5;--gc-outline-soft:#505B70;
+ --gc-focus-ring:#BFCBFF;--gc-brand:#BFB8FF;--gc-on-brand:#272057;
+ --gc-radius-sm:12px;--gc-radius-md:18px;--gc-radius-lg:26px;
+ --gc-control-min:44px;
+}
+:root{font-family:var(--gc-font-ui);color-scheme:dark;
+ --canvas:var(--gc-canvas);--surface:var(--gc-surface);
+ --surface-2:var(--gc-surface-tonal);--text:var(--gc-text);
+ --muted:var(--gc-text-soft);--stroke:var(--gc-outline-soft);
+ --focus:var(--gc-focus-ring);--accent:var(--gc-brand);
+ --accent-ink:var(--gc-on-brand)}
 *{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(ellipse at 17% 0%,#21294a 0%,transparent 51%),var(--canvas);color:var(--text)}
 .shell{width:min(1120px,calc(100% - 32px));margin:0 auto;padding:44px 0 60px}.masthead,.workspace-heading,.section-toolbar,.pages{display:flex;justify-content:space-between;align-items:center;gap:20px}
 h1{font-size:clamp(2.2rem,5vw,4rem);max-width:650px;line-height:1.07;letter-spacing:-.045em;margin:14px 0}

@@ -7,3 +7,5 @@ The old loopback-only `MainActivity` source remains as an unlaunched compatibili
 The app clears credentials immediately on sign-out and attempts authenticated HTTPS revocation. If offline, it explicitly reports that server revocation is unconfirmed; the token expires within 12 hours. Avoid signing in on an untrusted device.
 
 Build locally with Android Studio or Gradle `gradle --project-dir android-app :app:assembleDebug`. Minimum API 26, target SDK 35, Java 17. The manifest disallows backup and global cleartext access.
+
+The native preview's dark colors are aligned to the verified GoreeCloud UI semantic dark roles (canvas, surface, text, text-soft and brand) from `GoreeCloud/gc-ui` at commit `9e51ef78196e41bb7e402014dac482aff5e65941`. This is a source-level palette alignment, not evidence of completed component-system integration or device-level visual accessibility acceptance.

@@ -33,11 +33,11 @@ import java.util.concurrent.Executors;
  * TLS certificate bypass, redirect, analytics or persistent credentials.
  */
 public final class HostedActivity extends Activity {
-    private static final int BACKGROUND = Color.rgb(13, 18, 32);
-    private static final int PANEL = Color.rgb(28, 37, 57);
-    private static final int TEXT = Color.rgb(241, 246, 252);
-    private static final int SOFT = Color.rgb(183, 199, 220);
-    private static final int ACCENT = Color.rgb(183, 170, 255);
+    private static final int BACKGROUND = Color.rgb(13, 18, 29);
+    private static final int PANEL = Color.rgb(23, 29, 42);
+    private static final int TEXT = Color.rgb(242, 244, 251);
+    private static final int SOFT = Color.rgb(206, 213, 229);
+    private static final int ACCENT = Color.rgb(191, 184, 255);
     private static final int MAX_BODY = 512 * 1024;
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
 
