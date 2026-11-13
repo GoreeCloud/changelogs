@@ -3,6 +3,7 @@ import argparse
 import json
 import sys
 from .store import Store, KINDS
+from .backup import backup, restore
 
 def parser():
     p = argparse.ArgumentParser(prog="goree-changelogs", description="Self-hosted changelog management")
@@ -38,6 +39,11 @@ def parser():
     export.add_argument("--version")
     export.add_argument("--format", choices=("json", "markdown"), default="markdown")
     export.add_argument("--limit", type=int, default=10000)
+    b = sub.add_parser('backup', help='Create a consistent SQLite backup without overwriting')
+    b.add_argument('destination')
+    r = sub.add_parser('restore', help='Restore a validated backup (replaces existing entries)')
+    r.add_argument('source')
+    r.add_argument('--yes', action='store_true', help='Explicitly acknowledge replacement')
     return p
 
 def markdown(rows):
@@ -55,7 +61,13 @@ def main(argv=None):
     args = parser().parse_args(argv)
     try:
         store = Store(args.db)
-        if args.command == "add":
+        if args.command == "backup":
+            print(backup(store, args.destination))
+        elif args.command == "restore":
+            if not args.yes:
+                raise ValueError("Restore replaces existing entries; pass --yes to confirm")
+            print(restore(store, args.source))
+        elif args.command == "add":
             entry_id = store.add(args.product, args.version, args.kind, args.title,
                                  args.description, args.author, args.date, json.loads(args.metadata))
             print(entry_id)
