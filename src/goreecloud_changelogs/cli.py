@@ -26,6 +26,8 @@ def parser():
     search.add_argument("query")
     search.add_argument("--product")
     search.add_argument("--limit", type=int, default=100)
+    summary = sub.add_parser("summary", help="Summarize entries by product and kind")
+    summary.add_argument("--product")
     show = sub.add_parser("show", help="Show one entry")
     show.add_argument("id", type=int)
     edit = sub.add_parser("edit", help="Update an entry")
@@ -84,6 +86,8 @@ def main(argv=None):
             print(json.dumps(store.list(args.product, args.version, args.limit), indent=2))
         elif args.command == "search":
             print(json.dumps(store.search(args.query, args.product, args.limit), indent=2))
+        elif args.command == "summary":
+            print(json.dumps(store.summary(args.product), indent=2))
         elif args.command == "show":
             entry = store.get(args.id)
             if entry is None:
