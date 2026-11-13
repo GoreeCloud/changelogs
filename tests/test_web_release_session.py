@@ -20,8 +20,8 @@ class WebReleaseSessionTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.store = Store(Path(self.temp.name) / "viewer.sqlite3")
-        self.store.add("mesh", "1", "added", "<script>text</script>")
-        self.store.add("mesh", "2", "fixed", "Fix")
+        self.store.add("mesh", "1", "added", "<script>text</script>", released_at="2026-01-01")
+        self.store.add("mesh", "2", "fixed", "Fix", released_at="2026-02-01")
         self.server = ThreadingHTTPServer(("127.0.0.1", 0),
                                           make_handler(self.store, TOKEN, web=True))
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
