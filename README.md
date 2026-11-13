@@ -84,7 +84,7 @@ No MIPS integration or remote service is currently claimed.
 
 ## Security
 
-The CLI uses local SQLite without application-level encryption. Protect files with OS permissions, disk encryption, and backups. Never put secrets into changelog metadata. Do not expose the database publicly. This is a development baseline, not a security-certified release.
+The CLI uses local SQLite without application-level encryption. Newly created database files use owner-only permissions (`0600` on POSIX systems); permissions on existing databases are not automatically changed. Protect containing directories and existing files with OS permissions, disk encryption, and backups. Never put secrets into changelog metadata. Do not expose the database publicly. This is a development baseline, not a security-certified release.
 
 ## License
 
