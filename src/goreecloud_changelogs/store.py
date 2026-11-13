@@ -17,6 +17,7 @@ class Store:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         if self.path.is_symlink():
             raise ValueError("Database path must not be a symbolic link")
+        self._secure_new_database()
         with self.connect() as db:
             db.executescript("""
                 CREATE TABLE IF NOT EXISTS entries (
@@ -34,6 +35,23 @@ class Store:
                 );
                 CREATE INDEX IF NOT EXISTS entries_product_version ON entries(product, version);
             """)
+
+    def _secure_new_database(self):
+        """Create the database with owner-only permissions without changing existing files."""
+        if self.path.exists():
+            if not self.path.is_file():
+                raise ValueError("Database path must be a regular file")
+            return
+        flags = os.O_CREAT | os.O_EXCL | os.O_WRONLY
+        if hasattr(os, "O_NOFOLLOW"):
+            flags |= os.O_NOFOLLOW
+        try:
+            fd = os.open(self.path, flags, 0o600)
+        except FileExistsError:
+            if self.path.is_symlink() or not self.path.is_file():
+                raise ValueError("Database path must be a regular file")
+        else:
+            os.close(fd)
 
     @contextmanager
     def connect(self):
