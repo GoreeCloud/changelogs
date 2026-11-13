@@ -29,11 +29,13 @@ def parser():
     listing = sub.add_parser("list", help="List entries")
     listing.add_argument("--product")
     listing.add_argument("--version")
+    listing.add_argument("--kind", choices=sorted(KINDS))
     listing.add_argument("--limit", type=int, default=100)
     listing.add_argument("--offset", type=int, default=0)
     search = sub.add_parser("search", help="Search changelog text")
     search.add_argument("query")
     search.add_argument("--product")
+    search.add_argument("--kind", choices=sorted(KINDS))
     search.add_argument("--limit", type=int, default=100)
     search.add_argument("--offset", type=int, default=0)
     releases = sub.add_parser("releases", help="List releases grouped by product and version")
@@ -203,9 +205,9 @@ def main(argv=None):
                                  args.description, args.author, args.date, add_metadata)
             print(entry_id)
         elif args.command == "list":
-            print(json.dumps(store.list(args.product, args.version, args.limit, args.offset), indent=2))
+            print(json.dumps(store.list(args.product, args.version, args.limit, args.offset, kind=args.kind), indent=2))
         elif args.command == "search":
-            print(json.dumps(store.search(args.query, args.product, args.limit, args.offset), indent=2))
+            print(json.dumps(store.search(args.query, args.product, args.limit, args.offset, kind=args.kind), indent=2))
         elif args.command == "summary":
             print(json.dumps(store.summary(args.product), indent=2))
         elif args.command == "releases":

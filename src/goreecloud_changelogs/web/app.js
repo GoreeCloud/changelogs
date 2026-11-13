@@ -101,6 +101,7 @@
     view.addEventListener("click", () => {
       byId("product-input").value = record.product;
       byId("search-input").value = "";
+      byId("kind-input").value = "";
       versionFilter = record.version;
       selectMode("entries");
     });
@@ -113,6 +114,8 @@
     if (mode === "releases") versionFilter = "";
     searchLabel.hidden = mode === "releases";
     byId("search-input").disabled = mode === "releases";
+    byId("kind-label").hidden = mode === "releases";
+    byId("kind-input").disabled = mode === "releases";
     entriesButton.setAttribute("aria-pressed", String(mode === "entries"));
     releasesButton.setAttribute("aria-pressed", String(mode === "releases"));
     byId("library-title").textContent = mode === "entries" ? "Change history" : "Release history";
@@ -133,12 +136,14 @@
     try {
       const product = byId("product-input").value.trim();
       const query = mode === "entries" ? byId("search-input").value.trim() : "";
+      const kind = mode === "entries" ? byId("kind-input").value : "";
       const params = new URLSearchParams({ limit: String(limit), offset: String(offset) });
       if (product) params.set("product", product);
       let path = "/v1/releases?";
       if (mode === "entries") {
         path = query ? "/v1/search?" : "/v1/entries?";
         if (query) params.set("q", query);
+        if (kind) params.set("kind", kind);
         if (!query && versionFilter) params.set("version", versionFilter);
       }
       const data = await api(path + params.toString(), suppliedToken, controller.signal);

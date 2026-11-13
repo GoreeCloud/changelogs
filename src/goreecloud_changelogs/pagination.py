@@ -5,7 +5,10 @@ with a navigable successor; query values remain parameterized.
 """
 
 
-def entries_page(store, product=None, version=None, query=None, limit=100, offset=0):
+from .store import KINDS
+
+
+def entries_page(store, product=None, version=None, query=None, limit=100, offset=0, kind=None):
     if type(limit) is not int or not 1 <= limit <= 1000:
         raise ValueError("Limit must be between 1 and 1000")
     if type(offset) is not int or not 0 <= offset <= 1000000:
@@ -13,6 +16,8 @@ def entries_page(store, product=None, version=None, query=None, limit=100, offse
     for name, value in (("product", product), ("version", version)):
         if value is not None and not isinstance(value, str):
             raise ValueError(f"{name} must be text")
+    if kind is not None and kind not in KINDS:
+        raise ValueError("Invalid change kind")
     clauses, params = [], []
     if query is not None:
         if not isinstance(query, str) or not query.strip() or len(query) > 256:
@@ -26,7 +31,7 @@ def entries_page(store, product=None, version=None, query=None, limit=100, offse
             "instr(lower(author), ?) > 0)"
         )
         params.extend([needle] * 5)
-    for name, value in (("product", product), ("version", version)):
+    for name, value in (("product", product), ("version", version), ("kind", kind)):
         if value is not None:
             clauses.append(name + " = ?")
             params.append(value)

@@ -140,9 +140,9 @@ def make_handler(store, token, web=False):
                 return
             try:
                 params = (parse_qs(url.query, keep_blank_values=True,
-                                   strict_parsing=True, max_num_fields=5)
+                                   strict_parsing=True, max_num_fields=6)
                           if url.query else {})
-                if set(params) - {"product", "version", "limit", "offset", "q"} or any(len(v) != 1 for v in params.values()):
+                if set(params) - {"product", "version", "limit", "offset", "q", "kind"} or any(len(v) != 1 for v in params.values()):
                     raise ValueError("Invalid query parameters")
                 if url.path == "/v1/summary":
                     if set(params) - {"product"}:
@@ -172,7 +172,8 @@ def make_handler(store, token, web=False):
                 rows, has_more = entries_page(
                     store, product=params.get("product", [None])[0],
                     version=params.get("version", [None])[0],
-                    query=params.get("q", [None])[0], limit=limit, offset=offset)
+                    query=params.get("q", [None])[0],
+                    kind=params.get("kind", [None])[0], limit=limit, offset=offset)
             except (ValueError, OverflowError):
                 self._reply(400, {"error": "Invalid query"})
                 return
