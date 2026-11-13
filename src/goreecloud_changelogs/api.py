@@ -43,12 +43,15 @@ def make_handler(store, token):
                 self._reply(404, {"error": "Not found"})
                 return
             try:
-                params = parse_qs(url.query, keep_blank_values=True, strict_parsing=True, max_num_fields=4)
-                if set(params) - {"product", "version", "limit", "q"} or any(len(v) != 1 for v in params.values()):
+                params = parse_qs(url.query, keep_blank_values=True, strict_parsing=True, max_num_fields=5)
+                if set(params) - {"product", "version", "limit", "offset", "q"} or any(len(v) != 1 for v in params.values()):
                     raise ValueError("Invalid query parameters")
                 limit = int(params.get("limit", ["100"])[0])
                 if not 1 <= limit <= MAX_LIMIT:
                     raise ValueError("Invalid limit")
+                offset = int(params.get("offset", ["0"])[0])
+                if not 0 <= offset <= 1000000:
+                    raise ValueError("Invalid offset")
                 if url.path == "/v1/summary":
                     if set(params) - {"product"}:
                         raise ValueError("Summary accepts only product")
@@ -58,16 +61,16 @@ def make_handler(store, token):
                 if url.path == "/v1/search":
                     if "version" in params or "q" not in params:
                         raise ValueError("Search requires q and does not accept version")
-                    rows = store.search(params["q"][0], product=params.get("product", [None])[0], limit=limit)
+                    rows = store.search(params["q"][0], product=params.get("product", [None])[0], limit=limit, offset=offset)
                 else:
                     if "q" in params:
                         raise ValueError("q is only supported by search")
                     rows = store.list(product=params.get("product", [None])[0],
-                                      version=params.get("version", [None])[0], limit=limit)
+                                      version=params.get("version", [None])[0], limit=limit, offset=offset)
             except (ValueError, OverflowError):
                 self._reply(400, {"error": "Invalid query"})
                 return
-            self._reply(200, {"entries": rows})
+            self._reply(200, {"entries": rows, "limit": limit, "offset": offset, "has_more": len(rows) == limit})
 
         def do_POST(self):
             self._reply(405, {"error": "Read-only API"})
