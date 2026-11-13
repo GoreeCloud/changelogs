@@ -39,6 +39,19 @@ jobs:
       - name: Compile native Android reader
         run: gradle --project-dir android-app :app:assembleDebug --no-daemon --stacktrace
 
+  web-js-syntax:
+    name: Browser JavaScript syntax
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Parse hosted and loopback browser source
+        run: |
+          node --check src/goreecloud_changelogs/hosted_web/app.js
+          node --check src/goreecloud_changelogs/web/app.js
+
   wheel-smoke:
     name: Source-absent wheel smoke
     runs-on: ubuntu-latest

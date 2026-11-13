@@ -17,6 +17,13 @@
   let offset = 0;
   let hasMore = false;
   const limit = 30;
+  let saving = false;
+  const setSaveStatus = (message, state = "") => {
+    const target = $("save-status");
+    target.textContent = message;
+    if (state) target.dataset.state = state;
+    else delete target.dataset.state;
+  };
 
   async function api(path, options = {}) {
     const response = await fetch(path, {
@@ -48,6 +55,15 @@
     offset = 0; hasMore = false;
     $("entries").replaceChildren();
     $("password").value = "";
+    $("create-form").reset();
+    $("filters").reset();
+    $("create-section").hidden = true;
+    $("jump-create").hidden = true;
+    document.body.classList.remove("is-authenticated");
+    setSaveStatus("");
+    saving = false;
+    $("save-submit").disabled = false;
+    $("create-form").removeAttribute("aria-busy");
     $("login-panel").hidden = false;
     $("workspace").hidden = true;
     $("next").disabled = true;
@@ -61,6 +77,9 @@
     $("workspace").hidden = false;
     $("whoami").textContent = "Signed in as " + username + " · " + role;
     $("create-section").hidden = role !== "admin";
+    $("jump-create").hidden = role !== "admin";
+    document.body.classList.add("is-authenticated");
+    setSaveStatus("");
     offset = 0;
     refresh();
   }
@@ -102,7 +121,9 @@
       $("next").disabled = !hasMore;
       $("previous").disabled = offset === 0;
       $("page-label").textContent = "Page " + (Math.floor(offset / limit) + 1);
-      $("results-title").textContent = data.entries.length + " changes on this page";
+      const count = data.entries.length;
+      $("results-title").textContent = count + " " +
+        (count === 1 ? "change" : "changes") + " on this page";
       status("Connected to your private server.");
     } catch (error) {
       if (sequence !== loadSequence || epoch !== sessionEpoch || error.name === "AbortError") return;
@@ -153,18 +174,40 @@
   });
   $("create-form").addEventListener("submit", async event => {
     event.preventDefault();
-    if (role !== "admin") return;
+    if (role !== "admin" || saving) return;
+    const epoch = sessionEpoch;
     const entry = {
       product: $("new-product").value.trim(), version: $("new-version").value.trim(),
       kind: $("new-kind").value, title: $("new-title").value.trim(),
       description: $("new-description").value
     };
-    status("Saving change to server…");
+    saving = true;
+    $("save-submit").disabled = true;
+    $("create-form").setAttribute("aria-busy", "true");
+    setSaveStatus("Saving change…");
     try {
       await api("/v1/entries", {method: "POST", body: JSON.stringify(entry)});
+      if (epoch !== sessionEpoch) return;
       $("create-form").reset();
-      offset = 0; refresh();
-    } catch (error) { status(error.message); }
+      offset = 0;
+      setSaveStatus("Change saved to the server.", "success");
+      await refresh();
+    } catch (error) {
+      if (epoch === sessionEpoch) {
+        setSaveStatus(error.message || "Unable to save the change.", "error");
+      }
+    } finally {
+      if (epoch === sessionEpoch) {
+        saving = false;
+        $("save-submit").disabled = false;
+        $("create-form").removeAttribute("aria-busy");
+      }
+    }
   });
-  api("/v1/me").then(connected).catch(() => { clearSession(); });
+  const initialEpoch = sessionEpoch;
+  api("/v1/me").then(result => {
+    if (initialEpoch === sessionEpoch) connected(result);
+  }).catch(() => {
+    if (initialEpoch === sessionEpoch) clearSession();
+  });
 })();
