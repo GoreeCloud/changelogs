@@ -41,6 +41,11 @@ public final class HostedActivity extends Activity {
     private static final int MAX_BODY = 512 * 1024;
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
 
+    /** Raised only when a previously issued session is no longer authorized. */
+    private static final class SessionRejectedException extends Exception {
+        SessionRejectedException() { super("Authentication required."); }
+    }
+
     private EditText serverInput, usernameInput, passwordInput, productInput;
     private TextView status, identity;
     private LinearLayout entries, loginPanel, workspace;
@@ -193,6 +198,7 @@ public final class HostedActivity extends Activity {
                 try (OutputStream out = conn.getOutputStream()) { out.write(data); }
             }
             int result = conn.getResponseCode();
+            if (result == 401) throw new SessionRejectedException();
             if (result != 200) {
                 throw new IllegalStateException(
                     result == 401 || result == 403 ? "Authentication or permissions rejected." :
@@ -299,6 +305,11 @@ public final class HostedActivity extends Activity {
                 runOnUiThread(() -> {
                     if (isFinishing() || isDestroyed() || session != sessionGeneration ||
                         sequence != requestGeneration) return;
+                    if (error instanceof SessionRejectedException) {
+                        clearLocalSession();
+                        status.setText("Session expired or revoked. Sign in again.");
+                        return;
+                    }
                     loadMore.setEnabled(more);
                     status.setText("Unable to load changes. Check sign-in and server.");
                 });
@@ -330,22 +341,34 @@ public final class HostedActivity extends Activity {
         }
     }
 
-    private void signOut() {
-        // Immediately invalidate local callbacks and credentials, then try
-        // revoking the opaque session on the HTTPS server.
-        final String server = origin;
-        final String priorToken = token;
-        final long session = ++sessionGeneration;
+    private void clearLocalSession() {
+        // Local session rejection and explicit sign-out share the same
+        // invalidation path, so delayed network callbacks cannot revive data.
+        ++sessionGeneration;
         ++requestGeneration;
         token = "";
         origin = "";
         entries.removeAllViews();
         offset = 0; more = false;
         loadMore.setVisibility(View.GONE);
+        loadMore.setEnabled(false);
         workspace.setVisibility(View.GONE);
         loginPanel.setVisibility(View.VISIBLE);
         signIn.setEnabled(true);
+        serverInput.setText("");
+        usernameInput.setText("");
         passwordInput.setText("");
+        productInput.setText("");
+        identity.setText("");
+    }
+
+    private void signOut() {
+        // Immediately invalidate local callbacks and credentials, then try
+        // revoking the opaque session on the HTTPS server.
+        final String server = origin;
+        final String priorToken = token;
+        clearLocalSession();
+        final long session = sessionGeneration;
         status.setText("Signed out locally. Revoking server session…");
         if (!server.isEmpty() && !priorToken.isEmpty()) {
             worker.execute(() -> {
