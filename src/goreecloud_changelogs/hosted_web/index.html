@@ -28,7 +28,10 @@
       <div class="workspace-heading">
         <div><span class="eyebrow">RELEASE HISTORY</span><h2 id="workspace-title">Your shared changelogs</h2>
           <p id="whoami" class="assist"></p></div>
-        <button type="button" id="logout" class="secondary">Sign out</button>
+        <div class="workspace-actions">
+          <a id="jump-create" class="secondary shortcut" href="#create-section" hidden>Record a change</a>
+          <button type="button" id="logout" class="secondary">Sign out</button>
+        </div>
       </div>
       <div class="panel">
         <form id="filters" class="filters">
@@ -59,7 +62,8 @@
           </select></label>
           <label>Title<input id="new-title" required maxlength="256"></label>
           <label>Description<textarea id="new-description" maxlength="32768" rows="3"></textarea></label>
-          <button type="submit" class="primary">Save to server</button>
+          <button id="save-submit" type="submit" class="primary">Save to server</button>
+          <p id="save-status" class="assist" role="status" aria-live="polite" aria-atomic="true"></p>
         </form>
       </section>
     </section>
