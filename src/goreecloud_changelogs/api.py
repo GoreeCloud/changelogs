@@ -39,7 +39,7 @@ def make_handler(store, token):
             if url.path == "/health":
                 self._reply(200, {"status": "ok"})
                 return
-            if url.path not in ("/v1/entries", "/v1/search"):
+            if url.path not in ("/v1/entries", "/v1/search", "/v1/summary"):
                 self._reply(404, {"error": "Not found"})
                 return
             try:
@@ -49,6 +49,12 @@ def make_handler(store, token):
                 limit = int(params.get("limit", ["100"])[0])
                 if not 1 <= limit <= MAX_LIMIT:
                     raise ValueError("Invalid limit")
+                if url.path == "/v1/summary":
+                    if set(params) - {"product"}:
+                        raise ValueError("Summary accepts only product")
+                    result = store.summary(product=params.get("product", [None])[0])
+                    self._reply(200, result)
+                    return
                 if url.path == "/v1/search":
                     if "version" in params or "q" not in params:
                         raise ValueError("Search requires q and does not accept version")
