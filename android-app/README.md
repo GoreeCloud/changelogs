@@ -18,12 +18,12 @@ adb reverse tcp:8765 tcp:8765
 
 Open the app, paste the **same token** (use a secure local transfer), then tap **Connect / Refresh**. The token remains only in volatile process memory and is cleared on session reset or Activity destruction. The app contacts only `http://127.0.0.1:8765`; network security configuration denies cleartext outside that loopback exception. The app does not connect to the host directly over Wi-Fi or mobile data, and Android's localhost is not the host's localhost without the `adb reverse` mapping.
 
-The current app retrieves at most 40 records per refresh, with optional product and literal search filters. It is deliberately **read-only**. The CLI remains responsible for creating, editing, and deleting entries.
+The current app retrieves up to 40 records per page, with a **Load more** control for bounded pagination (maximum API offset 1,000,000), plus optional product and literal search filters. Request and session generations suppress stale network responses after session reset or later refresh; the bearer token is excluded from activity view-state saving and Android autofill. HTTP redirects are refused to avoid forwarding authorization outside the fixed loopback endpoint. It is deliberately **read-only**. The CLI remains responsible for creating, editing, and deleting entries.
 
 ## Limitations and release gates
 
 - Debug/development source only. Hosted CI compiled the Android debug APK; emulator/physical-device behavior, accessibility testing, and a signed release are **not verified**.
 - HTTP uses a loopback-only development exception. No LAN exposure, remote tunnel, certificate bypass, or public deployment is authorized.
 - Never log/share the API token; do not commit passwords or database exports.
-- Before broader use, add GoreeCloud Identity authentication, scoped authorization, HTTPS/private mesh transport, independent security/privacy review, accessible design review, stable pagination and Android build/device CI.
+- Before broader use, add GoreeCloud Identity authentication, scoped authorization, HTTPS/private mesh transport, independent security/privacy review, accessible design review, Android build/device CI and an independent session/privacy regression run on an authorized device.
 - See the root README for the backend's production-readiness gates.
