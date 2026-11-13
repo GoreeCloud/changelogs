@@ -20,7 +20,7 @@ python scripts/stage_acceptance.py --db ./authorized-staging.sqlite3 \
   --api-port 8765
 ```
 
-The JSON report includes a boolean `passed` and outcomes for SQLite integrity/schema/metadata, filesystem permission audit, and optionally local API bearer authorization, health, read-only rejection, no-store/security headers, entries and release endpoints. Exit status is 0 only when all selected checks pass. The report deliberately excludes database paths, changelog content, token values and raw exception messages. API requests go only to `127.0.0.1`, never a remote hostname, and include a write-method rejection probe with **no body**.
+The JSON report includes a boolean `passed` and outcomes for SQLite integrity/schema/metadata, filesystem permission audit, and optionally local API bearer authorization, health, no-store/security headers, entries and release endpoints. Exit status is 0 only when all selected read-only checks pass. The report deliberately excludes database paths, changelog content, token values and raw exception messages. API requests go only to `127.0.0.1`, never a remote hostname, and use **GET only**. The report explicitly states `write_methods_tested: false`; write-method blocking belongs to isolated API tests, not an active-host inspection that must avoid mutation.
 
 ## Limitations
 

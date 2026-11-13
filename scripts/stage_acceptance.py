@@ -14,13 +14,13 @@ from goreecloud_changelogs.backup import verify_backup
 from goreecloud_changelogs.store import audit_permissions
 
 
-def _probe(port, token, method, path, authenticated=True):
+def _probe(port, token, path, authenticated=True):
     if type(port) is not int or not 1 <= port <= 65535:
         raise ValueError("Port must be between 1 and 65535")
     connection = http.client.HTTPConnection("127.0.0.1", port, timeout=3)
     headers = {"Authorization": "Bearer " + token} if authenticated else {}
     try:
-        connection.request(method, path, headers=headers)
+        connection.request("GET", path, headers=headers)
         response = connection.getresponse()
         body = response.read(262145)
         if len(body) > 262144:
@@ -49,26 +49,26 @@ def check(db_path, api_port=None, token=None):
             status["error_type"] = "TokenMissingOrShort"
         else:
             try:
-                unauth, _, _ = _probe(api_port, token, "GET", "/health",
+                unauth, _, _ = _probe(api_port, token, "/health",
                                      authenticated=False)
-                health, headers, body = _probe(api_port, token, "GET", "/health")
-                releases, _, _ = _probe(api_port, token, "GET", "/v1/releases?limit=1")
-                entries, _, _ = _probe(api_port, token, "GET", "/v1/entries?limit=1")
-                blocked, _, _ = _probe(api_port, token, "POST", "/v1/entries")
+                health, headers, body = _probe(api_port, token, "/health")
+                releases, _, _ = _probe(api_port, token, "/v1/releases?limit=1")
+                entries, _, _ = _probe(api_port, token, "/v1/entries?limit=1")
                 health_ok = json.loads(body).get("status") == "ok"
                 controls = (headers.get("Cache-Control") == "no-store" and
                             headers.get("X-Frame-Options") == "DENY" and
                             "Access-Control-Allow-Origin" not in headers)
                 status.update({
                     "authentication_enforced": unauth == 401,
-                    "read_only": blocked == 405,
+                    "write_methods_tested": False,
                     "list_available": entries == 200,
                     "releases_available": releases == 200,
                     "security_headers": controls,
                     "health": health == 200 and health_ok,
                 })
-                status["passed"] = all(value for name, value in status.items()
-                                       if name not in ("checked", "passed"))
+                required = ("authentication_enforced", "list_available",
+                            "releases_available", "security_headers", "health")
+                status["passed"] = all(status.get(name) is True for name in required)
             except Exception as exc:
                 status["error_type"] = type(exc).__name__
     output["passed"] = (permissions["secure"] and output["sqlite"]["passed"]

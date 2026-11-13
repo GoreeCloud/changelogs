@@ -74,11 +74,18 @@ class StageAcceptanceTests(unittest.TestCase):
         result = check(self.db, self._start_api(), TOKEN)
         self.assertTrue(result["passed"])
         self.assertTrue(result["api"]["authentication_enforced"])
-        self.assertTrue(result["api"]["read_only"])
+        self.assertFalse(result["api"]["write_methods_tested"])
         self.assertTrue(result["api"]["security_headers"])
         self.assertNotIn("Do not disclose", json.dumps(result))
         self.assertNotIn(TOKEN, json.dumps(result))
         self.assertEqual(store.list(), before)
+
+    def test_api_probes_never_send_write_method(self):
+        from scripts import stage_acceptance as acceptance
+        source = Path(acceptance.__file__).read_text(encoding="utf-8")
+        self.assertIn('connection.request("GET", path, headers=headers)', source)
+        self.assertNotIn('connection.request("POST"', source)
+        self.assertNotIn('connection.request(method,', source)
 
     def test_wrong_token_cannot_pass_api_verification(self):
         Store(self.db)
