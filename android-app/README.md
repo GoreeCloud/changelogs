@@ -4,7 +4,7 @@ A **native Android Java/SDK app** for viewing changelogs from the GoreeCloud Cha
 
 ## Build
 
-Open `android-app/` in Android Studio with a trusted Gradle 8.9 installation, Android SDK Platform 35, and JDK 17. The project uses Android Gradle Plugin 8.7.3, with compile/target SDK 35 and min SDK 26. A Gradle wrapper binary is deliberately not committed; generate/configure a trusted Gradle wrapper if your environment requires one. No Android build or device run is claimed until verified separately.
+Open `android-app/` in Android Studio with a trusted Gradle 8.9 installation, Android SDK Platform 35, and JDK 17. The project uses Android Gradle Plugin 8.7.3, with compile/target SDK 35 and min SDK 26. A Gradle wrapper binary is deliberately not committed; generate/configure a trusted Gradle wrapper if your environment requires one. The GitHub Actions Android debug build succeeded using Gradle 8.9, Android SDK 35 and JDK 17 ([verification run](https://github.com/GoreeCloud/changelogs/actions/runs/43399191557)); this does not establish emulator or physical-device behavior.
 
 ## Connect to the loopback server
 
@@ -22,7 +22,7 @@ The current app retrieves at most 40 records per refresh, with optional product 
 
 ## Limitations and release gates
 
-- Debug/development source only; Android APK build, emulator/physical-device behavior, Accessibility testing and signed release are **not verified**.
+- Debug/development source only. Hosted CI compiled the Android debug APK; emulator/physical-device behavior, accessibility testing, and a signed release are **not verified**.
 - HTTP uses a loopback-only development exception. No LAN exposure, remote tunnel, certificate bypass, or public deployment is authorized.
 - Never log/share the API token; do not commit passwords or database exports.
 - Before broader use, add GoreeCloud Identity authentication, scoped authorization, HTTPS/private mesh transport, independent security/privacy review, accessible design review, stable pagination and Android build/device CI.

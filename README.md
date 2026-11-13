@@ -118,6 +118,7 @@ python -m unittest discover -s tests -v
 This repository remains a development release until the following gates are evidenced:
 
 - [x] Local CLI/API regression suite, SQLite integrity checks, and authenticated loopback API tests
+- [x] GitHub Actions Android debug source compilation (Gradle 8.9 / SDK 35 / JDK 17); device acceptance remains open
 - [x] Verified consistent backup snapshots under a concurrent-writer test, including WAL-mode snapshot cleanup
 - [x] Recovery snapshot, collision rejection, and invalid-source preservation regression tests
 - [ ] Verify interruption and crash recovery, including database restore failure injection
