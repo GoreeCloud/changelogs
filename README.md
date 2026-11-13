@@ -151,6 +151,10 @@ python -m pip install -e .
 python -m unittest discover -s tests -v
 ```
 
+## Distribution smoke verification
+
+GitHub Actions additionally builds and installs a wheel, then tests the installed CLI, database lifecycle, release notes, JSON portability and token-protected web/API resources from **outside the source checkout**. This catches missing bundled web assets and packaging regressions that source-tree unit tests alone can miss. It does not certify Android hardware behavior or a production deployment.
+
 ## Production readiness gates
 
 This repository remains a development release until the following gates are evidenced:
