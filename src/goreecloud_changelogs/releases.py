@@ -22,6 +22,17 @@ def _validate_pagination(limit, offset):
 def list_releases(store, product=None, limit=100, offset=0):
     """Group entries by (product, version), ordering by latest release date."""
     _validate_pagination(limit, offset)
+    return _grouped_releases(store, product, limit, offset)
+
+
+def page_releases(store, product=None, limit=100, offset=0):
+    """Return an exact continuation indicator from one grouped read."""
+    _validate_pagination(limit, offset)
+    rows = _grouped_releases(store, product, limit + 1, offset)
+    return rows[:limit], len(rows) > limit and offset + limit <= 1000000
+
+
+def _grouped_releases(store, product, limit, offset):
     if product is not None and not isinstance(product, str):
         raise ValueError("Product must be text")
     where = " WHERE product = ?" if product is not None else ""
