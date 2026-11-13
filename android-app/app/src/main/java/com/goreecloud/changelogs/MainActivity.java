@@ -50,7 +50,13 @@ public final class MainActivity extends Activity {
     private LinearLayout entries;
     private TextView status;
     private Button refresh;
+    private Button loadMore;
     private String bearerToken = "";
+    // Generations prevent responses in flight from repopulating cleared sessions.
+    private long sessionVersion = 0;
+    private long requestVersion = 0;
+    private int offset = 0;
+    private boolean hasMore = false;
 
     private int dp(float value) {
         return (int) (value * getResources().getDisplayMetrics().density + 0.5f);
@@ -135,6 +141,8 @@ public final class MainActivity extends Activity {
 
         connection.addView(text("LOCAL API · READ ONLY", 12, ACCENT, true));
         tokenInput = field("Paste bearer token (32+ characters)", true);
+        tokenInput.setSaveEnabled(false);
+        tokenInput.setImportantForAutofill(View.IMPORTANT_FOR_AUTOFILL_NO);
         addWithMargin(connection, tokenInput, 12);
         productInput = field("Filter by product (optional)", false);
         addWithMargin(connection, productInput, 10);
@@ -155,10 +163,16 @@ public final class MainActivity extends Activity {
         disconnect.setTextColor(TEXT);
         addWithMargin(connection, disconnect, 5);
         disconnect.setOnClickListener(v -> {
+            ++sessionVersion;
+            ++requestVersion;
             bearerToken = "";
+            offset = 0;
+            hasMore = false;
             tokenInput.setText("");
             entries.removeAllViews();
-            setStatus("Session cleared.");
+            refresh.setEnabled(true);
+            loadMore.setVisibility(View.GONE);
+            setStatus("Session cleared. Earlier responses will be ignored.");
         });
 
         status = text("Use adb reverse tcp:8765 tcp:8765 to reach the host API.", 13, MUTED, false);
@@ -168,6 +182,14 @@ public final class MainActivity extends Activity {
         entries = new LinearLayout(this);
         entries.setOrientation(LinearLayout.VERTICAL);
         addWithMargin(root, entries, 20);
+
+        loadMore = new Button(this);
+        loadMore.setText("Load more");
+        loadMore.setAllCaps(false);
+        loadMore.setTextColor(TEXT);
+        loadMore.setVisibility(View.GONE);
+        addWithMargin(root, loadMore, 18);
+        loadMore.setOnClickListener(v -> loadNext());
     }
 
     private void setStatus(String value) {
@@ -179,38 +201,66 @@ public final class MainActivity extends Activity {
     }
 
     private void load() {
+        requestPage(false);
+    }
+
+    private void loadNext() {
+        if (hasMore) requestPage(true);
+    }
+
+    private void requestPage(boolean append) {
         String entered = tokenInput.getText().toString();
         if (!entered.isEmpty()) {
+            ++sessionVersion;
             bearerToken = entered;
             tokenInput.setText("");
+            offset = 0;
+            hasMore = false;
         }
         if (bearerToken.length() < 32) {
             setStatus("A bearer token of at least 32 characters is required.");
             return;
         }
+        if (append && !hasMore) return;
+        final long startSession = sessionVersion;
+        final long startRequest = ++requestVersion;
         final String suppliedToken = bearerToken;
         final String product = productInput.getText().toString().trim();
         final String query = queryInput.getText().toString().trim();
+        final int requestedOffset = append ? offset : 0;
         refresh.setEnabled(false);
-        setStatus("Loading local changes…");
+        loadMore.setEnabled(false);
+        setStatus(append ? "Loading more changes…" : "Loading local changes…");
         executor.execute(() -> {
             try {
-                String path = query.isEmpty() ? "/v1/entries?limit=40" : "/v1/search?limit=40&q=" + encode(query);
+                String path = query.isEmpty()
+                        ? "/v1/entries?limit=40&offset=" + requestedOffset
+                        : "/v1/search?limit=40&offset=" + requestedOffset + "&q=" + encode(query);
                 if (!product.isEmpty()) path += "&product=" + encode(product);
                 JSONObject response = read(suppliedToken, path);
                 JSONArray rows = response.getJSONArray("entries");
+                final boolean nextPage = response.optBoolean("has_more", false) &&
+                        rows.length() > 0 && requestedOffset + rows.length() <= 1000000;
                 runOnUiThread(() -> {
-                    if (isFinishing() || isDestroyed()) return;
-                    render(rows);
+                    if (isFinishing() || isDestroyed() ||
+                            startSession != sessionVersion || startRequest != requestVersion) return;
+                    render(rows, append);
+                    offset = requestedOffset + rows.length();
+                    hasMore = nextPage;
+                    loadMore.setVisibility(hasMore ? View.VISIBLE : View.GONE);
+                    loadMore.setEnabled(hasMore);
                     refresh.setEnabled(true);
-                    setStatus(rows.length() + " local entries loaded. Read only.");
+                    setStatus(rows.length() + " changes loaded" +
+                            (append ? " on this page." : ".") + " Read only.");
                 });
             } catch (Exception error) {
-                // Do not log or display token, endpoint query, or record contents.
+                // Never print a token, private query, or response body to logs or UI.
                 final String message = error.getMessage() == null ? "Request failed" : error.getMessage();
                 runOnUiThread(() -> {
-                    if (isFinishing() || isDestroyed()) return;
+                    if (isFinishing() || isDestroyed() ||
+                            startSession != sessionVersion || startRequest != requestVersion) return;
                     refresh.setEnabled(true);
+                    loadMore.setEnabled(hasMore);
                     setStatus(message);
                 });
             }
@@ -220,6 +270,8 @@ public final class MainActivity extends Activity {
     private JSONObject read(String token, String path) throws Exception {
         HttpURLConnection connection = (HttpURLConnection) new URL(API + path).openConnection();
         connection.setRequestMethod("GET");
+        connection.setInstanceFollowRedirects(false);
+        connection.setRequestProperty("Accept", "application/json");
         connection.setRequestProperty("Authorization", "Bearer " + token);
         connection.setConnectTimeout(4000);
         connection.setReadTimeout(7000);
@@ -244,9 +296,9 @@ public final class MainActivity extends Activity {
         }
     }
 
-    private void render(JSONArray rows) {
-        entries.removeAllViews();
-        if (rows.length() == 0) {
+    private void render(JSONArray rows, boolean append) {
+        if (!append) entries.removeAllViews();
+        if (rows.length() == 0 && !append) {
             addWithMargin(entries, text("No matching changes.", 15, MUTED, false), 10);
             return;
         }
@@ -274,6 +326,8 @@ public final class MainActivity extends Activity {
 
     @Override
     protected void onDestroy() {
+        ++sessionVersion;
+        ++requestVersion;
         bearerToken = "";
         executor.shutdownNow();
         super.onDestroy();
