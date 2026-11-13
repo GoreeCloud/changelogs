@@ -42,6 +42,9 @@ def backup(store, destination):
         with store.connect() as source:
             with closing(sqlite3.connect(temp)) as target:
                 source.backup(target)
+                # A WAL-mode source can transfer WAL mode to the snapshot.
+                # Normalize the standalone backup before publishing it.
+                target.execute("PRAGMA journal_mode=DELETE")
         _validate_source(temp)
         # Exclusive publication; never silently replace a preexisting backup.
         os.link(temp, destination)
