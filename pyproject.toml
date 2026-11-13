@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "goreecloud-changelogs"
-version = "1.0.0"
+version = "1.1.0.dev0"
 description = "Stable local-first changelog CLI and loopback read-only API"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -35,4 +35,4 @@ where = ["src"]
 testpaths = ["tests"]
 
 [tool.setuptools.package-data]
-"goreecloud_changelogs" = ["web/*.html", "web/*.css", "web/*.js"]
+"goreecloud_changelogs" = ["web/*.html", "web/*.css", "web/*.js", "hosted_web/*.html", "hosted_web/*.css", "hosted_web/*.js"]

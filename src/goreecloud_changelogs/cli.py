@@ -1,5 +1,7 @@
 """Command-line interface for GoreeCloud Changelogs."""
 import argparse
+import getpass
+import os
 import json
 import re
 import sqlite3
@@ -16,6 +18,8 @@ from .exporter import export_rows, encode_export, write_export, markdown as safe
 def parser():
     p = argparse.ArgumentParser(prog="goree-changelogs", description="Self-hosted changelog management")
     p.add_argument("--db", help="SQLite database path (or GOREE_CHANGELOGS_DB)")
+    p.add_argument("--server", default=os.environ.get("GOREE_CHANGELOGS_SERVER_URL"),
+                   help="Self-hosted HTTPS server origin; selects shared server instead of local DB")
     sub = p.add_subparsers(dest="command", required=True)
     add = sub.add_parser("add", help="Create a changelog entry")
     add.add_argument("product")
@@ -86,6 +90,18 @@ def parser():
     sub.add_parser("doctor", help="Read-only SQLite health and filesystem privacy diagnostics")
     v = sub.add_parser("verify-backup", help="Read-only backup integrity and schema check")
     v.add_argument("source")
+    login = sub.add_parser("login", help="Sign in to configured self-hosted server")
+    login.add_argument("--username", required=True)
+    host = sub.add_parser("host", help="Initialize or run the self-hosted multi-client server")
+    host_sub = host.add_subparsers(dest="host_command", required=True)
+    host_init = host_sub.add_parser("init", help="Bootstrap a self-hosted administrator")
+    host_init.add_argument("--data-dir", required=True)
+    host_init.add_argument("--username", default="admin")
+    host_serve = host_sub.add_parser("serve", help="Run authenticated web/API listener on loopback")
+    host_serve.add_argument("--data-dir", required=True)
+    host_serve.add_argument("--origin", default=os.environ.get("GOREE_CHANGELOGS_PUBLIC_ORIGIN"),
+                            help="Exact public HTTPS origin at your reviewed ingress")
+    host_serve.add_argument("--port", type=int, default=8876)
     server = sub.add_parser("serve", help="Start token-authenticated loopback read-only API")
     server.add_argument("--port", type=int, default=8765)
     server.add_argument("--web", action="store_true", help="Serve the optional local read-only web viewer")
@@ -97,6 +113,53 @@ def markdown(rows):
 def main(argv=None):
     args = parser().parse_args(argv)
     try:
+        if args.command == "host":
+            if args.server or args.db:
+                raise ValueError("Host commands use --data-dir, not --server or --db")
+            from .hosted_server import data_paths, serve_hosted
+            if args.host_command == "serve":
+                serve_hosted(args.data_dir, args.origin, args.port)
+                return 0
+            from .hosted_auth import AuthStore
+            db, account_path = data_paths(args.data_dir)
+            if db.exists() or account_path.exists():
+                raise ValueError("Host data directory is already initialized")
+            password = getpass.getpass("Choose administrator password (14+ characters): ")
+            confirm = getpass.getpass("Confirm administrator password: ")
+            if password != confirm:
+                raise ValueError("Passwords do not match")
+            from .hosted_auth import _password_bytes
+            _password_bytes(password)
+            account_store = AuthStore(account_path, initialize=True)
+            account_store.bootstrap(args.username, password)
+            Store(db)
+            print("Self-hosted workspace initialized. Configure HTTPS ingress before remote access.")
+            return 0
+        if args.server:
+            if args.db:
+                raise ValueError("Do not combine remote --server with local --db")
+            from .hosted_client import origin, execute, login as remote_login
+            server = origin(args.server)
+            if args.command == "login":
+                password = getpass.getpass("Self-hosted Changelogs password: ")
+                token = remote_login(server, args.username, password)
+                # This token is shown once, never written to disk by the CLI.
+                print(token)
+                return 0
+            if args.command not in ("add", "list", "search", "releases",
+                                    "summary", "show", "edit", "delete"):
+                raise ValueError("This command is local-only; unset --server")
+            if args.command == "delete" and not args.yes:
+                if not sys.stdin.isatty():
+                    raise ValueError("Use --yes for noninteractive remote deletion")
+                if input(f"Delete remote entry {args.id}? Type 'delete' to confirm: ") != "delete":
+                    print("Cancelled")
+                    return 1
+            result = execute(args)
+            print(json.dumps(result, indent=2) if isinstance(result, (dict, list)) else result)
+            return 0
+        if args.command == "login":
+            raise ValueError("Specify --server to log in to the self-hosted workspace")
         if args.command == "audit-permissions":
             result = audit_permissions(args.db)
             print(json.dumps(result, indent=2))

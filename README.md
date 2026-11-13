@@ -13,6 +13,27 @@ python -m pip install .
 goree-changelogs --help
 ```
 
+## Self-hosted server — v1.1 development
+
+**This is the intended multi-client deployment model.** One instance runs on your VPS or a local server and stores the authoritative changelogs plus separate local user/session data. The CLI can write directly to that host; the web app serves an account sign-in screen and reads/writes the same database. The Android preview is designed for HTTPS login to that server. The published v1.0.0 tag is immutable and remains a local CLI/API release; these hosted changes are an unreleased v1.1 development branch.
+
+An operator bootstraps the first administrator locally, then runs the application **bound to 127.0.0.1**, behind independently configured HTTPS/TLS ingress. The server offers no public registration, no default passwords, no insecure external HTTP, no third-party analytics or automatic exports. Authentication uses salted 600,000-iteration PBKDF2-HMAC-SHA256 hashes, generic login errors and a persistent rate limit, with revocable, expiring sessions. The web app uses Secure HttpOnly SameSite cookies and an anti-CSRF token; CLI/Android obtain short-lived bearer sessions. **Do not expose the HTTP listener directly or treat this work as production deployed.**
+
+```bash
+# On a selected trusted host, interactive bootstrap (once):
+goree-changelogs host init --data-dir /var/lib/goreecloud/changelogs --username admin
+# After setting up a reviewed HTTPS reverse proxy:
+goree-changelogs host serve --data-dir /var/lib/goreecloud/changelogs \
+  --origin https://YOUR-APPROVED-DOMAIN --port 8876
+
+# On a client machine: obtain a short-lived token (do not commit/store in a file):
+goree-changelogs --server https://YOUR-APPROVED-DOMAIN login --username admin
+# Supply that token securely via GOREE_CHANGELOGS_REMOTE_TOKEN:
+goree-changelogs --server https://YOUR-APPROVED-DOMAIN add mesh 1.0.0 added "Feature launched"
+```
+
+See [self-hosted installation, client access and migration](docs/HOSTED_SERVER.md) for safe operational prerequisites. Hosting on an owned VPS or physical server is supported by the same service design; changing locations requires a reviewed database and account backup/restore, not a new cloud account.
+
 ## Usage
 
 ```sh
