@@ -37,6 +37,7 @@ Create a consistent SQLite backup without overwriting an existing file:
 
 ```sh
 goree-changelogs backup ./snapshot.sqlite3
+goree-changelogs verify-backup ./snapshot.sqlite3
 ```
 
 Restore from a validated backup (replaces all current entries; back up the live database first):
@@ -45,7 +46,7 @@ Restore from a validated backup (replaces all current entries; back up the live 
 goree-changelogs restore ./snapshot.sqlite3 --yes
 ```
 
-Backups are checked for SQLite integrity and compatible entry columns. The restore command requires explicit confirmation. These commands operate on the selected local database; no remote backup or cloud synchronization is implied.
+Backups are checked for SQLite integrity and compatible entry columns. `verify-backup` performs a non-mutating check and prints JSON containing `valid` and `entries`; it does not initialize a live database. The restore command requires explicit confirmation. These commands operate on the selected local database; no remote backup or cloud synchronization is implied.
 
 ## Local read-only HTTP API
 
