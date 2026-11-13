@@ -2,6 +2,7 @@
 import argparse
 import json
 import sqlite3
+from pathlib import Path
 import sys
 from .store import Store, KINDS
 from .backup import backup, restore, verify_backup
@@ -89,9 +90,9 @@ def main(argv=None):
             if args.recovery_backup:
                 # Validate the incoming snapshot before creating a recovery copy.
                 verify_backup(args.source)
-                if __import__("pathlib").Path(args.recovery_backup).expanduser().resolve() == store.path.resolve():
+                if Path(args.recovery_backup).expanduser().resolve() == store.path.resolve():
                     raise ValueError("Recovery backup must differ from the live database")
-                if __import__("pathlib").Path(args.recovery_backup).expanduser().resolve() == __import__("pathlib").Path(args.source).expanduser().resolve():
+                if Path(args.recovery_backup).expanduser().resolve() == Path(args.source).expanduser().resolve():
                     raise ValueError("Recovery backup must differ from the restore source")
                 backup(store, args.recovery_backup)
             print(restore(store, args.source))
