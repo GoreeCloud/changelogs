@@ -34,6 +34,17 @@ goree-changelogs --server https://YOUR-APPROVED-DOMAIN add mesh 1.0.0 added "Fea
 
 See [self-hosted installation, client access and migration](docs/HOSTED_SERVER.md) for safe operational prerequisites. Hosting on an owned VPS or physical server is supported by the same service design; changing locations requires a reviewed database and account backup/restore, not a new cloud account.
 
+## Hosting backups, accounts and future server migration
+
+The **v1.1 development** hosted service stores changelog entries and local
+account/session information in separate SQLite files. Once the hosted service
+has been **stopped and its writers quiesced**, `goree-changelogs host backup
+--data-dir HOST-DATA --destination NEW-PRIVATE-DIRECTORY --offline-ack`
+creates a verified, no-overwrite pair and clears sessions from the account
+backup. `goree-changelogs host verify-backup --source DIRECTORY` performs
+read-only validation. An actual server restore/deployment is not automated.
+See [self-hosted backup and recovery boundaries](docs/HOSTED_BACKUP.md).
+
 ## Bringing older local CLI entries onto the hosted server
 
 Previously created local SQLite entries are not automatically uploaded. The new
