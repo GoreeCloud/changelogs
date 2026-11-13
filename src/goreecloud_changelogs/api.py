@@ -138,8 +138,9 @@ def make_handler(store, token, web=False):
                 self._reply(404, {"error": "Not found"})
                 return
             try:
-                params = parse_qs(url.query, keep_blank_values=True,
-                                  strict_parsing=True, max_num_fields=5)
+                params = (parse_qs(url.query, keep_blank_values=True,
+                                   strict_parsing=True, max_num_fields=5)
+                          if url.query else {})
                 if set(params) - {"product", "version", "limit", "offset", "q"} or any(len(v) != 1 for v in params.values()):
                     raise ValueError("Invalid query parameters")
                 if url.path == "/v1/summary":
