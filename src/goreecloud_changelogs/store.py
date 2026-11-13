@@ -67,9 +67,11 @@ class Store:
                 (product.strip(), version.strip(), kind, title.strip(), description, author, date, json.dumps(metadata), now, now))
             return cur.lastrowid
 
-    def list(self, product=None, version=None, limit=100):
-        if not 1 <= limit <= 10000:
+    def list(self, product=None, version=None, limit=100, offset=0):
+        if not isinstance(limit, int) or not 1 <= limit <= 10000:
             raise ValueError("Limit must be between 1 and 10000")
+        if not isinstance(offset, int) or not 0 <= offset <= 1000000:
+            raise ValueError("Offset must be between 0 and 1000000")
         clauses, params = [], []
         for key, value in (("product", product), ("version", version)):
             if value is not None:
@@ -77,15 +79,17 @@ class Store:
                 params.append(value)
         where = " WHERE " + " AND ".join(clauses) if clauses else ""
         with self.connect() as db:
-            rows = db.execute("SELECT * FROM entries" + where + " ORDER BY released_at DESC, id DESC LIMIT ?", (*params, limit)).fetchall()
+            rows = db.execute("SELECT * FROM entries" + where + " ORDER BY released_at DESC, id DESC LIMIT ? OFFSET ?", (*params, limit, offset)).fetchall()
             return [self._decode(row) for row in rows]
 
-    def search(self, query, product=None, limit=100):
+    def search(self, query, product=None, limit=100, offset=0):
         """Literal case-insensitive search across changelog text fields."""
         if not isinstance(query, str) or not query.strip() or len(query) > 256:
             raise ValueError("Search query must contain 1-256 characters")
         if not isinstance(limit, int) or not 1 <= limit <= 1000:
             raise ValueError("Limit must be between 1 and 1000")
+        if not isinstance(offset, int) or not 0 <= offset <= 1000000:
+            raise ValueError("Offset must be between 0 and 1000000")
         needle = query.strip().lower()
         # instr() performs literal matching; unlike LIKE, % and _ are not wildcards.
         params = [needle] * 5
@@ -96,8 +100,8 @@ class Store:
         if product is not None:
             sql += " AND product = ?"
             params.append(product)
-        sql += " ORDER BY released_at DESC, id DESC LIMIT ?"
-        params.append(limit)
+        sql += " ORDER BY released_at DESC, id DESC LIMIT ? OFFSET ?"
+        params.extend((limit, offset))
         with self.connect() as db:
             return [self._decode(row) for row in db.execute(sql, params).fetchall()]
 
