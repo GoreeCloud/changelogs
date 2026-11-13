@@ -40,13 +40,13 @@ goree-changelogs backup ./snapshot.sqlite3
 goree-changelogs verify-backup ./snapshot.sqlite3
 ```
 
-Restore from a validated backup (replaces all current entries; back up the live database first):
+Preflight a restore without creating or modifying the live database:\n\n```sh\ngoree-changelogs restore ./snapshot.sqlite3 --dry-run\n```\n\nRestore from a validated backup (replaces all current entries; back up the live database first):
 
 ```sh
 goree-changelogs restore ./snapshot.sqlite3 --yes --recovery-backup ./before-restore.sqlite3
 ```
 
-Backups are checked for SQLite integrity and compatible entry columns. `verify-backup` performs a non-mutating check and prints JSON containing `valid` and `entries`; it does not initialize a live database. The restore command requires explicit confirmation. The optional `--recovery-backup` creates a validated, non-overwriting snapshot of the current database before replacing records. This is not an automatic rollback mechanism, and concurrent writers must be stopped during recovery. These commands operate on the selected local database; no remote backup or cloud synchronization is implied.
+Backups are checked for SQLite integrity and compatible entry columns. `verify-backup` performs a non-mutating check and prints JSON containing `valid` and `entries`; it does not initialize a live database. A dry run validates the source and reports its entry count but does not lock the live database or guarantee that a subsequent restore will succeed. The restore command requires explicit confirmation. The optional `--recovery-backup` creates a validated, non-overwriting snapshot of the current database before replacing records. This is not an automatic rollback mechanism, and concurrent writers must be stopped during recovery. These commands operate on the selected local database; no remote backup or cloud synchronization is implied.
 
 ## Local read-only HTTP API
 
