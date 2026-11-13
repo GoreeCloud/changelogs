@@ -10,6 +10,7 @@ from .backup import backup, restore, verify_backup
 from .importer import read_import, import_records
 from .metadata import parse_metadata
 from .releases import list_releases, release_details, markdown_release
+from .exporter import export_rows, encode_export, write_export, markdown as safe_markdown
 
 def parser():
     p = argparse.ArgumentParser(prog="goree-changelogs", description="Self-hosted changelog management")
@@ -60,7 +61,11 @@ def parser():
     export.add_argument("--product")
     export.add_argument("--version")
     export.add_argument("--format", choices=("json", "markdown"), default="markdown")
-    export.add_argument("--limit", type=int, default=10000)
+    export.add_argument("--limit", type=int, default=None,
+                        help="Explicit maximum rows (partial exports; default requires all to fit)")
+    export.add_argument("--offset", type=int, default=0,
+                        help="Entry offset; requires --limit")
+    export.add_argument("--output", help="Write a private, atomic, never-overwritten file")
     imp = sub.add_parser("import", help="Preview or atomically import a bounded JSON changelog export")
     imp.add_argument("source", help="UTF-8 JSON array from 'export --format json'")
     imp.add_argument("--expect-sha256", help="Pin source bytes to a reviewed preview SHA-256")
@@ -84,15 +89,7 @@ def parser():
     return p
 
 def markdown(rows):
-    out = ["# Changelog", ""]
-    for row in rows:
-        out.extend([f"## {row['product']} {row['version']} — {row['released_at']}",
-                    f"### {row['kind'].capitalize()}: {row['title']}", ""])
-        if row["description"]:
-            out.extend([row["description"], ""])
-        if row["author"]:
-            out.extend([f"Author: {row['author']}", ""])
-    return "\n".join(out).rstrip() + "\n"
+    return safe_markdown(rows)
 
 def main(argv=None):
     args = parser().parse_args(argv)
@@ -208,8 +205,13 @@ def main(argv=None):
                 raise ValueError("Entry not found")
             print("Deleted")
         elif args.command == "export":
-            rows = store.list(args.product, args.version, args.limit)
-            print(json.dumps(rows, indent=2) if args.format == "json" else markdown(rows), end="")
+            rows = export_rows(store, args.product, args.version,
+                               args.format, args.limit, args.offset)
+            content = encode_export(rows, args.format)
+            if args.output:
+                write_export(args.output, content)
+            else:
+                print(content, end="")
         return 0
     except (ValueError, OSError, sqlite3.DatabaseError, json.JSONDecodeError) as exc:
         print(f"Error: {exc}", file=sys.stderr)

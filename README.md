@@ -22,8 +22,8 @@ goree-changelogs search "synchronization" --product goreecloud-mesh
 goree-changelogs summary --product goreecloud-mesh
 goree-changelogs show 1
 goree-changelogs edit 1 --description "Updated release details"
-goree-changelogs export --format markdown > CHANGELOG.md
-goree-changelogs export --format json > changelogs.json
+goree-changelogs export --format markdown --output CHANGELOG.md
+goree-changelogs export --format json --output changelogs.json
 goree-changelogs delete 1
 ```
 
@@ -44,12 +44,23 @@ goree-changelogs release-notes goreecloud-mesh 0.1.0 > RELEASE_NOTES.md
 
 The `releases` command reports each version's earliest and latest recorded release date, entry count, and counts by change kind. `release-notes` groups individual changes in familiar Added/Changed/Deprecated/Removed/Fixed/Security sections, escaping content as literal Markdown text to prevent accidental rendered HTML. A missing version or release larger than 10,000 entries fails rather than silently returning incomplete notes. The loopback API adds authenticated `GET /v1/releases?product=...&limit=...&offset=...`, keeping all endpoints read-only. Release notes contain whatever product names, authors and descriptions you recorded—review before publishing them.
 
+## Complete, private exports
+
+Export is **complete by default**. It either returns all matching entries that fit in one file or refuses the operation without printing a partial document. Portable JSON exports validate each record against the importer contract and must fit within **5,000 entries and 8 MiB**. Markdown defaults to a 10,000-entry ceiling. For larger collections use explicit bounded chunks (preferably from a consistent offline SQLite backup so concurrent insertions cannot shift offsets):
+
+```sh
+goree-changelogs export --format json --limit 3000 --offset 0 --output part-1.json
+goree-changelogs export --format json --limit 3000 --offset 3000 --output part-2.json
+```
+
+An explicitly supplied `--limit` opts into **partial** output; `--offset` is valid only with `--limit`. Adjust the chunk size if an export still exceeds 8 MiB. To avoid shell redirection creating an empty file on validation failure, prefer `--output FILE`: it writes a same-directory, owner-only temporary file, fsyncs it, and atomically installs the destination without overwriting existing files. The containing directory is created private when new; existing directory permissions are left unchanged. Output contains recorded product names, authors and descriptions—review before publishing. Chunks may be imported separately using preview-first JSON import and its SHA-256 pin.
+
 ## Portable JSON import (preview-first)
 
 Export your entries to inert UTF-8 JSON. Preview a JSON import **without creating a database** and then explicitly opt in to adding validated entries:
 
 ```sh
-goree-changelogs export --format json > changelogs.json
+goree-changelogs export --format json --output changelogs.json
 goree-changelogs --db ./restored.sqlite3 import changelogs.json
 goree-changelogs --db ./restored.sqlite3 import changelogs.json --yes --expect-sha256 YOUR_PREVIEW_SHA256
 ```
