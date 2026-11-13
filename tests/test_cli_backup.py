@@ -52,6 +52,15 @@ class CLIRestoreTests(unittest.TestCase):
         self.assertEqual(self.invoke("restore", str(self.snapshot), "--yes", "--recovery-backup", str(self.db)), 1)
         self.assertEqual(len(self.store.list()), 2)
 
+    def test_invalid_source_does_not_create_recovery(self):
+        self.store.add("mesh", "1", "added", "Preserve")
+        invalid = self.root / "invalid.sqlite3"
+        invalid.write_bytes(b"invalid")
+        recovery = self.root / "recovery.sqlite3"
+        self.assertEqual(self.invoke("restore", str(invalid), "--yes", "--recovery-backup", str(recovery)), 1)
+        self.assertFalse(recovery.exists())
+        self.assertEqual([r["title"] for r in self.store.list()], ["Preserve"])
+
     def test_backup_refuses_overwrite(self):
         self.assertEqual(self.invoke("backup", str(self.snapshot)), 0)
         self.assertEqual(self.invoke("backup", str(self.snapshot)), 1)
