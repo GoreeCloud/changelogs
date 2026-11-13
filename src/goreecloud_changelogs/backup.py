@@ -1,6 +1,7 @@
 """Consistent SQLite backups and guarded restoration."""
 import os
 import sqlite3
+import tempfile
 from contextlib import closing
 from pathlib import Path
 
@@ -25,15 +26,15 @@ def backup(store, destination):
     if destination.exists() or destination.is_symlink():
         raise ValueError("Destination already exists; backups never overwrite")
     destination.parent.mkdir(parents=True, exist_ok=True)
-    temp = destination.with_name(destination.name + ".partial-" + str(os.getpid()))
-    if temp.exists() or temp.is_symlink():
-        raise ValueError("Temporary backup path already exists")
+    # Atomic, unpredictable creation prevents predictable-name symlink races.
+    fd, temp_name = tempfile.mkstemp(prefix=destination.name + ".partial-", dir=destination.parent)
+    os.close(fd)
+    temp = Path(temp_name)
     try:
         with store.connect() as source:
             with closing(sqlite3.connect(temp)) as target:
                 source.backup(target)
         _validate_source(temp)
-        os.chmod(temp, 0o600)
         # Exclusive publication; never silently replace a preexisting backup.
         os.link(temp, destination)
     finally:
