@@ -61,6 +61,25 @@ class CLIRestoreTests(unittest.TestCase):
         self.assertFalse(recovery.exists())
         self.assertEqual([r["title"] for r in self.store.list()], ["Preserve"])
 
+    def test_restore_dry_run_does_not_create_live_database(self):
+        self.store.add("mesh", "1", "added", "Snapshot")
+        self.assertEqual(self.invoke("backup", str(self.snapshot)), 0)
+        missing = self.root / "missing-live.sqlite3"
+        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+            result = main(["--db", str(missing), "restore", str(self.snapshot), "--dry-run"])
+        self.assertEqual(result, 0)
+        self.assertFalse(missing.exists())
+        self.assertEqual(len(self.store.list()), 1)
+
+    def test_restore_dry_run_rejects_invalid_source(self):
+        invalid = self.root / "corrupt.sqlite3"
+        invalid.write_bytes(b"not sqlite")
+        missing = self.root / "missing-live.sqlite3"
+        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+            result = main(["--db", str(missing), "restore", str(invalid), "--dry-run"])
+        self.assertEqual(result, 1)
+        self.assertFalse(missing.exists())
+
     def test_backup_refuses_overwrite(self):
         self.assertEqual(self.invoke("backup", str(self.snapshot)), 0)
         self.assertEqual(self.invoke("backup", str(self.snapshot)), 1)
