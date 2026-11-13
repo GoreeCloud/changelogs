@@ -6,6 +6,7 @@ from pathlib import Path
 import sys
 from .store import Store, KINDS, default_path, audit_permissions
 from .backup import backup, restore, verify_backup
+from .importer import read_import, import_records
 
 def parser():
     p = argparse.ArgumentParser(prog="goree-changelogs", description="Self-hosted changelog management")
@@ -49,6 +50,11 @@ def parser():
     export.add_argument("--version")
     export.add_argument("--format", choices=("json", "markdown"), default="markdown")
     export.add_argument("--limit", type=int, default=10000)
+    imp = sub.add_parser("import", help="Preview or atomically import a bounded JSON changelog export")
+    imp.add_argument("source", help="UTF-8 JSON array from 'export --format json'")
+    confirm = imp.add_mutually_exclusive_group()
+    confirm.add_argument("--yes", action="store_true", help="Write validated entries; duplicates are skipped")
+    confirm.add_argument("--dry-run", action="store_true", help="Validate only (the default)")
     b = sub.add_parser('backup', help='Create a consistent SQLite backup without overwriting')
     b.add_argument('destination')
     r = sub.add_parser('restore', help='Restore a validated backup (replaces existing entries)')
@@ -94,6 +100,14 @@ def main(argv=None):
             if source_path.resolve() == selected_db.resolve() or (selected_db.is_file() and source_path.samefile(selected_db)):
                 raise ValueError("Source and destination databases must differ (including hard links)")
             print(json.dumps({"dry_run": True, **result}, indent=2))
+            return 0
+        if args.command == "import":
+            entries, digest = read_import(args.source)
+            if not args.yes:
+                print(json.dumps({"dry_run": True, "validated": len(entries), "sha256": digest}, indent=2))
+                return 0
+            result = import_records(Store(args.db), entries)
+            print(json.dumps({"dry_run": False, **result, "sha256": digest}, indent=2))
             return 0
         store = Store(args.db)
         if args.command == "serve":

@@ -31,6 +31,20 @@ Deletion requires typing `delete` interactively, or explicitly passing `--yes` f
 
 Database defaults to `~/.local/share/goreecloud/changelogs.sqlite3`. Set `GOREE_CHANGELOGS_DB` or global `--db` to override. SQLite stores entries with product, version, kind, title, description, author, release date, JSON metadata, and creation/update timestamps. Filtering by product and version is supported.
 
+## Portable JSON import (preview-first)
+
+Export your entries to inert UTF-8 JSON. Preview a JSON import **without creating a database** and then explicitly opt in to adding validated entries:
+
+```sh
+goree-changelogs export --format json > changelogs.json
+goree-changelogs --db ./restored.sqlite3 import changelogs.json
+goree-changelogs --db ./restored.sqlite3 import changelogs.json --yes
+```
+
+The default import mode is a read-only validation preview (equivalent to `--dry-run`) showing the validated record count and SHA-256 of the input bytes. `--yes` opens the target SQLite database only after all rows pass validation. A single transaction imports entries without overwriting existing rows; an exact match of product, version, kind, title, description, author, release date, and JSON metadata is skipped, even if metadata key order differs. IDs remain database-local; exported creation and modification times are preserved. Duplicate records *within the source* are rejected rather than silently collapsed.
+
+To limit untrusted imports, the importer requires a regular, non-symlink file, valid UTF-8, a JSON array of at most 5,000 entries and at most 8 MiB, known entry fields, a JSON metadata object, valid ISO 8601 dates, and bounded field lengths. Duplicate JSON keys and non-finite values are rejected. The importer does not evaluate data as code or access the network. Preview does not ensure that a later import will have the same duplicate count if the destination is modified in between. Inspect the data before importing; do not include credentials or private information in a public changelog export.
+
 ## Backups and recovery
 
 Create a consistent SQLite backup without overwriting an existing file:
