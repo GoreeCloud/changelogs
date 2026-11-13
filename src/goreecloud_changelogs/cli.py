@@ -1,9 +1,10 @@
 """Command-line interface for GoreeCloud Changelogs."""
 import argparse
 import json
+import sqlite3
 import sys
 from .store import Store, KINDS
-from .backup import backup, restore
+from .backup import backup, restore, verify_backup
 
 def parser():
     p = argparse.ArgumentParser(prog="goree-changelogs", description="Self-hosted changelog management")
@@ -52,6 +53,8 @@ def parser():
     r = sub.add_parser('restore', help='Restore a validated backup (replaces existing entries)')
     r.add_argument('source')
     r.add_argument('--yes', action='store_true', help='Explicitly acknowledge replacement')
+    v = sub.add_parser("verify-backup", help="Read-only backup integrity and schema check")
+    v.add_argument("source")
     server = sub.add_parser("serve", help="Start token-authenticated loopback read-only API")
     server.add_argument("--port", type=int, default=8765)
     return p
@@ -70,6 +73,9 @@ def markdown(rows):
 def main(argv=None):
     args = parser().parse_args(argv)
     try:
+        if args.command == "verify-backup":
+            print(json.dumps(verify_backup(args.source), indent=2))
+            return 0
         store = Store(args.db)
         if args.command == "serve":
             from .api import serve
@@ -118,7 +124,7 @@ def main(argv=None):
             rows = store.list(args.product, args.version, args.limit)
             print(json.dumps(rows, indent=2) if args.format == "json" else markdown(rows), end="")
         return 0
-    except (ValueError, OSError, json.JSONDecodeError) as exc:
+    except (ValueError, OSError, sqlite3.DatabaseError, json.JSONDecodeError) as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 1
 
