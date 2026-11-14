@@ -125,6 +125,10 @@ def parser():
     host_verify = host_sub.add_parser("verify-backup",
         help="Read-only verification of a complete self-hosted backup pair")
     host_verify.add_argument("--source", required=True)
+    host_stage = host_sub.add_parser("stage-restore",
+        help="Validate and copy a host backup into a NEW private data directory only")
+    host_stage.add_argument("--source", required=True)
+    host_stage.add_argument("--destination", required=True)
     host_serve = host_sub.add_parser("serve", help="Run authenticated web/API listener on loopback")
     host_serve.add_argument("--data-dir", required=True)
     host_serve.add_argument("--origin", default=os.environ.get("GOREE_CHANGELOGS_PUBLIC_ORIGIN"),
@@ -153,6 +157,10 @@ def main(argv=None):
             if args.host_command == "verify-backup":
                 from .hosted_backup import verify_host_backup
                 print(json.dumps(verify_host_backup(args.source), indent=2))
+                return 0
+            if args.host_command == "stage-restore":
+                from .hosted_backup import stage_host_restore
+                print(json.dumps(stage_host_restore(args.source, args.destination), indent=2))
                 return 0
             if args.host_command == "backup":
                 from .hosted_backup import backup_host

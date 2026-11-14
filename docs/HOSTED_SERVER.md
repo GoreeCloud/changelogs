@@ -1,6 +1,6 @@
 # GoreeCloud Changelogs — Self-hosted VPS / Local Server (v1.1 development)
 
-**Status: implemented source under review; not deployed.** The immutable v1.0.0 GitHub release is limited to a local CLI/read-only API. The intended product is a centrally stored Changelogs server on an authorized GoreeCloud VPS or an owned local server later, with accounts and a common API for CLI, web and Android. This document is a non-production staging runbook, **not** evidence that an installation currently exists.
+**Status: experimental source; one owner-operated HTTPS development instance was verified November 14, 2026 at changelogs.goreecloud.com, but no Stable hosted release is certified.** The immutable v1.0.0 GitHub release is limited to a local CLI/read-only API. The intended product is a centrally stored Changelogs server on an authorized GoreeCloud VPS or an owned local server later, with accounts and a common API for CLI, web and Android. This is a development-operations runbook; the observed owner-operated service does not establish general production readiness or a published stable hosted package.
 
 ## Architecture
 
@@ -98,7 +98,17 @@ The default Android launcher shows an HTTPS server address, username and passwor
 
 Plan an authorized maintenance window and **stop all writers and the application**. Back up both SQLite files *consistently* using SQLite's backup API (not raw copying while active). Verify page-level integrity, restore to a separate disposable staging target first, and preserve permissions/ownership. The two-file set must be migrated together to preserve entries and user accounts/sessions. Clear/revoke old sessions when transferring trust domains. Reconfigure and verify public HTTPS URL, DNS, certificate renewal, gateway route and app connections before switching traffic. Keep the source system intact for rollback until a verified backup/restore and acceptance.
 
-The existing v1.0.0 `verify-backup` checks the changelog-entry database **only**; it is not a combined identity/account recovery tool. Auth DB recovery and service backup orchestration remain release gates.
+The v1.1 development CLI supports a separately verified **paired** backup and a no-clobber staging action, without modifying or restarting the serving instance. First stop all writers before creating a coherent account/changelog backup pair; do not use `--offline-ack` while the service is running.
+
+```sh
+goree-changelogs host backup --data-dir /var/lib/goreecloud/changelogs --destination /private/backups/snapshot-1 --offline-ack
+goree-changelogs host verify-backup --source /private/backups/snapshot-1
+# The destination must NOT already exist and its parent must be owner-only.
+goree-changelogs host stage-restore --source /private/backups/snapshot-1 --destination /private/recovery/new-host-data
+goree-changelogs host doctor --data-dir /private/recovery/new-host-data
+```
+
+Staging creates two private databases (0700 directory, 0600 files on POSIX), verifies each copied database against the backup SHA-256 manifest and runs independent account/changelog checks. Backup sessions are deliberately absent, so users must sign in again after any future, separately approved cutover. On an error, the new incomplete staging directory is left for manual inspection; an existing destination is never overwritten. This command **does not** activate or replace a live server, alter active accounts, or prove interruption/crash resilience. The v1.0.0 entry-only `verify-backup` remains distinct from the v1.1 development paired-host commands. Live cutover, interrupted-operation rollback, and full account recovery remain release gates.
 
 ## Remaining acceptance gates
 
