@@ -74,7 +74,10 @@ function harness() {
     }
     if (url.startsWith("/v1/entries?") || url.startsWith("/v1/search?")) {
       return Promise.resolve(response({entries: [
-        {id: 1, product: "mesh", version: "1.0", kind: "added",
+        {id: 1, product: "goreecloud-notes", version: "0.1.10-dev", kind: "fixed",
+         title: "Merged source fix", description: "", released_at: "2026-11-13",
+         metadata: {distribution_status: "development-source-only"}},
+        {id: 2, product: "mesh", version: "1.0", kind: "added",
          title: "Verified", description: "", released_at: "2026-11-13"}
       ], has_more: false}));
     }
@@ -144,4 +147,25 @@ test("release view drills into matching product and version without writes", asy
   assert.equal(h.byId("view-entries").attributes["aria-pressed"], "true");
   assert.ok(h.calls.every(call => !call.options.method ||
                                   call.options.method === "GET"));
+});
+
+function flattenText(root) {
+  return [root.textContent, ...root.children.flatMap(flattenText)].join(" ");
+}
+
+test("development-source-only records are visibly marked and unknown status is not asserted", async () => {
+  const h = harness();
+  await tick();
+  const entries = h.byId("entries").children;
+  assert.equal(entries.length, 2);
+  assert.match(flattenText(entries[0]), /Unreleased · development source/);
+  assert.doesNotMatch(flattenText(entries[1]), /Unreleased/);
+});
+
+test("grouped versions never assert a published release", async () => {
+  const h = harness();
+  await tick();
+  h.byId("view-releases").click();
+  await tick();
+  assert.match(flattenText(h.byId("entries")), /publication not verified/);
 });

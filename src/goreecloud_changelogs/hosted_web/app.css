@@ -76,3 +76,7 @@ button:disabled{opacity:.5;cursor:not-allowed}.authentication button{margin-top:
 .release-details{font-size:.85rem;color:var(--muted)}
 .release-open{margin-top:18px}
 @media(max-width:560px){.view-tabs{margin-top:12px}.view-tabs button{flex:1}}
+
+/* Editorial distinction: source history is not evidence of a distributed release. */
+.maturity-note{color:var(--gc-text-soft);font-size:.81rem;font-weight:650;line-height:1.5;margin:10px 0 0;border-inline-start:3px solid var(--accent);padding-inline-start:10px}
+.entry .maturity-note{color:var(--muted)}

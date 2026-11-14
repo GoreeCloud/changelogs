@@ -88,6 +88,22 @@
     setView("entries", false);
     refresh();
   }
+  // A changelog entry is an engineering record, not a deployment receipt.
+  // Only explicitly recorded metadata can establish an entry's maturity.
+  function entryMaturity(entry) {
+    const meta = entry && entry.metadata;
+    if (!meta || typeof meta !== "object" || Array.isArray(meta)) return "";
+    if (meta.distribution_status === "development-source-only") {
+      return "Unreleased · development source";
+    }
+    if (meta.distribution_status === "unreleased") return "Unreleased";
+    if (meta.distribution_status === "development-build") return "Development build";
+    return "";
+  }
+  function isDevelopmentVersion(version) {
+    return typeof version === "string" &&
+      /(?:[-.](?:dev|alpha|beta|rc)(?:[.-]?[0-9]*)?|\.dev[0-9]*)$/i.test(version);
+  }
   function renderRelease(release) {
     const card = node("article", "entry");
     const head = node("div", "entry-top");
@@ -100,6 +116,10 @@
     card.append(head, node("h3", "", release.product),
                 node("p", "release-details", count + " " +
                   (count === 1 ? "change" : "changes") + " · " + dates));
+    card.append(node("p", "maturity-note",
+      isDevelopmentVersion(release.version)
+        ? "Development version · publication not verified"
+        : "Version group · publication not verified"));
     const kinds = node("div", "release-kinds");
     for (const [kind, count] of Object.entries(release.by_kind || {})) {
       kinds.append(node("span", "release-kind", kind + ": " + count));
@@ -140,7 +160,14 @@
       const card = node("article", "entry");
       const head = node("div", "entry-top");
       head.append(node("span", "kind", entry.kind), node("small", "", entry.released_at));
-      card.append(head, node("h3", "", entry.title),
+      const maturity = entryMaturity(entry);
+      if (maturity) {
+        const label = node("p", "maturity-note", maturity);
+        card.append(head, label);
+      } else {
+        card.append(head);
+      }
+      card.append(node("h3", "", entry.title),
                   node("p", "", entry.product + " · " + entry.version));
       if (entry.description) card.append(node("p", "description", entry.description));
       fragment.append(card);
@@ -180,7 +207,7 @@
       $("previous").disabled = offset === 0;
       $("page-label").textContent = "Page " + (Math.floor(offset / limit) + 1);
       const count = rows.length;
-      const singular = mode === "entries" ? "change" : "release";
+      const singular = mode === "entries" ? "change" : "version group";
       $("results-title").textContent = count + " " +
         (count === 1 ? singular : singular + "s") + " on this page" +
         (mode === "entries" && versionFilter ? " · Version: " + versionFilter : "");
