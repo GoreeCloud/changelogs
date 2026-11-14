@@ -1,0 +1,38 @@
+name: Hosted Docker Compose validation
+
+on:
+  pull_request:
+    paths:
+      - Dockerfile
+      - .dockerignore
+      - compose.yaml
+      - deploy/compose.env.example
+      - docs/self-hosted-compose.md
+      - .github/workflows/compose-validation.yml
+  push:
+    paths:
+      - Dockerfile
+      - .dockerignore
+      - compose.yaml
+      - deploy/compose.env.example
+      - docs/self-hosted-compose.md
+      - .github/workflows/compose-validation.yml
+
+permissions:
+  contents: read
+
+jobs:
+  compose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify Compose interpolation and schema without starting services
+        env:
+          GOREE_CHANGELOGS_DATA_DIR: /tmp/goreecloud-changelogs-compose-ci
+          GOREE_CHANGELOGS_PUBLIC_ORIGIN: https://changelogs.example.test
+        run: docker compose config --quiet
+      - name: Build development image (do not launch server)
+        run: docker build -t goreecloud-changelogs:compose-ci .
+      - name: Verify non-root CLI entrypoint
+        run: docker run --rm --read-only --user 10001:10001 --cap-drop=ALL --security-opt=no-new-privileges goreecloud-changelogs:compose-ci --help
