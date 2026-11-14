@@ -11,7 +11,7 @@ from pathlib import Path
 
 from goreecloud_changelogs.cli import main
 from goreecloud_changelogs.hosted_auth import AuthStore
-from goreecloud_changelogs.hosted_backup import backup_host, verify_host_backup
+from goreecloud_changelogs.hosted_backup import backup_host, verify_host_backup, stage_host_restore
 from goreecloud_changelogs.store import Store
 
 
@@ -109,6 +109,57 @@ class HostedBackupTests(unittest.TestCase):
         self.assertTrue(json.loads(output.getvalue())["valid"])
         self.assertNotIn("test-password-long-enough", output.getvalue())
         self.assertNotIn(self.token, output.getvalue())
+
+    def test_stage_restore_private_two_database_readback_without_live_mutation(self):
+        backup_host(self.data, self.output, offline_ack=True)
+        target = self.root / "stage-new"
+        result = stage_host_restore(self.output, target)
+        self.assertEqual(result, {"staged": True, "entries": 1,
+                                  "users": 1, "sessions_saved": 0,
+                                  "deployed": False})
+        self.assertEqual(sorted(p.name for p in target.iterdir()),
+                         ["accounts.sqlite3", "changelogs.sqlite3"])
+        if os.name == "posix":
+            self.assertEqual(target.stat().st_mode & 0o777, 0o700)
+            self.assertTrue(all(p.stat().st_mode & 0o777 == 0o600
+                                for p in target.iterdir()))
+        from goreecloud_changelogs.hosted_diagnostics import diagnose_host
+        report = diagnose_host(target)
+        self.assertTrue(report["healthy"])
+        self.assertEqual(report["changelogs"]["entries"], 1)
+        self.assertEqual(report["accounts"]["active_session_hashes"], 0)
+        self.assertIsNotNone(self.accounts.resolve(self.token, "token"))
+        self.assertEqual(self.entries.list()[0]["title"], "Host backup test")
+
+    def test_stage_restore_rejects_existing_target_and_tampered_database(self):
+        backup_host(self.data, self.output, offline_ack=True)
+        target = self.root / "stage-existing"
+        target.mkdir(mode=0o700)
+        sentinel = target / "preserve.txt"
+        sentinel.write_text("owner file")
+        with self.assertRaisesRegex(ValueError, "new"):
+            stage_host_restore(self.output, target)
+        self.assertEqual(sentinel.read_text(), "owner file")
+        fresh = self.root / "stage-refused"
+        with (self.output / "changelogs.sqlite3").open("ab") as stream:
+            stream.write(b"genuine tampering")
+        with self.assertRaisesRegex(ValueError, "SHA-256"):
+            stage_host_restore(self.output, fresh)
+        self.assertFalse(fresh.exists())
+        self.assertEqual(self.entries.list()[0]["title"], "Host backup test")
+
+    def test_cli_stage_restore_returns_no_credentials_and_never_overwrites(self):
+        backup_host(self.data, self.output, offline_ack=True)
+        target = self.root / "cli-staged"
+        output, error = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(output), contextlib.redirect_stderr(error):
+            code = main(["host", "stage-restore", "--source", str(self.output),
+                         "--destination", str(target)])
+        self.assertEqual(code, 0, error.getvalue())
+        self.assertTrue(json.loads(output.getvalue())["staged"])
+        self.assertNotIn(self.token, output.getvalue())
+        self.assertNotIn("test-password-long-enough", output.getvalue())
+        self.assertEqual(len(list(target.iterdir())), 2)
 
 
 if __name__ == "__main__":

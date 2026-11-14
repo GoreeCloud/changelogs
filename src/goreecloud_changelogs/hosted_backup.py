@@ -9,6 +9,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import shutil
 import sqlite3
 import stat
 from contextlib import closing
@@ -190,3 +191,55 @@ def verify_host_backup(directory):
         raise ValueError("Backup counts are inconsistent")
     return {"valid": True, "entries": data["entries"], "users": counts["users"],
             "sessions_saved": 0, "sha256": hashes}
+
+def stage_host_restore(source, destination):
+    """Stage a *verified* paired host backup as new private databases.
+
+    This is a no-clobber, offline recovery rehearsal; it never modifies a
+    running server or installs a service. On failure, the incomplete *new*
+    directory is retained for explicit inspection.
+    """
+    source = Path(source).expanduser()
+    destination = Path(destination).expanduser()
+    verified = verify_host_backup(source)
+    if destination.is_symlink() or destination.exists() or destination.parent.is_symlink():
+        raise ValueError("Staging destination must be a new, non-symlink directory")
+    if not destination.parent.is_dir():
+        raise ValueError("Create the staging parent first")
+    _check_private(destination.parent, directory=True)
+    source_real = source.resolve()
+    target_real = destination.resolve(strict=False)
+    if (source_real == target_real or source_real in target_real.parents
+            or target_real in source_real.parents):
+        raise ValueError("Staging directory must not overlap its backup source")
+    manifest = json.loads((source / "manifest.json").read_text(encoding="utf-8"))
+    destination.mkdir(mode=0o700, exist_ok=False)
+    for name in FILES[:2]:
+        # Create each file exclusively: do not follow a racing symlink,
+        # invoke maintainer code, or overwrite an existing user database.
+        target = destination / name
+        fd = os.open(target, os.O_CREAT | os.O_EXCL | os.O_WRONLY
+                     | getattr(os, "O_NOFOLLOW", 0), 0o600)
+        with os.fdopen(fd, "wb") as output:
+            with open(source / name, "rb") as incoming:
+                shutil.copyfileobj(incoming, output, length=256 * 1024)
+            output.flush()
+            os.fsync(output.fileno())
+        if _file_hash(target) != manifest["sha256"][name]:
+            raise ValueError("Copied recovery database failed SHA-256 readback")
+    if os.name == "posix" and hasattr(os, "O_DIRECTORY"):
+        fd = os.open(destination, os.O_RDONLY | os.O_DIRECTORY)
+        try:
+            os.fsync(fd)
+        finally:
+            os.close(fd)
+    from .hosted_diagnostics import diagnose_host
+    report = diagnose_host(destination)
+    if (not report["healthy"]
+            or report["changelogs"]["entries"] != verified["entries"]
+            or report["accounts"]["users"] != verified["users"]
+            or report["accounts"]["active_session_hashes"] != 0):
+        raise ValueError("Staged recovery failed independent host health checks")
+    return {"staged": True, "entries": verified["entries"],
+            "users": verified["users"], "sessions_saved": 0,
+            "deployed": False}
