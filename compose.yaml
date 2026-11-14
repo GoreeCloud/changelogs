@@ -1,0 +1,40 @@
+# GoreeCloud Changelogs hosted v1.1 development preview; Linux Docker Compose only.
+# The application intentionally listens on 127.0.0.1, requiring Linux host networking.
+name: goreecloud-changelogs
+
+services:
+  changelogs:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: goreecloud-changelogs:1.1.0-dev
+    network_mode: host
+    user: "10001:10001"
+    read_only: true
+    init: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+    stop_grace_period: 30s
+    environment:
+      PYTHONDONTWRITEBYTECODE: "1"
+      PYTHONUNBUFFERED: "1"
+    volumes:
+      - type: bind
+        source: ${GOREE_CHANGELOGS_DATA_DIR:?Set an existing private absolute data directory}
+        target: /data
+        bind:
+          create_host_path: false
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=16m,mode=1777
+    command:
+      - host
+      - serve
+      - --data-dir
+      - /data
+      - --origin
+      - ${GOREE_CHANGELOGS_PUBLIC_ORIGIN:?Set the exact approved HTTPS ingress origin}
+      - --port
+      - "8876"
