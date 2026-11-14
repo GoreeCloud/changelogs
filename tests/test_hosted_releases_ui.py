@@ -80,6 +80,10 @@ class HostedReleaseBrowserTests(unittest.TestCase):
         self.assertIn('node("span", "release-kind"', js)
         self.assertNotIn("innerHTML", js)
         self.assertNotIn("localStorage", js)
+        self.assertIn('entryMaturity(entry)', js)
+        self.assertIn('publication not verified', js)
+        self.assertIn('id="publication-note"', html)
+        self.assertIn('>Versions</button>', html)
 
 
 if __name__ == "__main__":
