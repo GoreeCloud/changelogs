@@ -1,0 +1,62 @@
+name: Hosted Docker Compose validation
+
+on:
+  pull_request:
+    paths:
+      - Dockerfile
+      - .dockerignore
+      - compose.yaml
+      - deploy/compose.env.example
+      - docs/self-hosted-compose.md
+      - .github/workflows/compose-validation.yml
+  push:
+    paths:
+      - Dockerfile
+      - .dockerignore
+      - compose.yaml
+      - deploy/compose.env.example
+      - docs/self-hosted-compose.md
+      - .github/workflows/compose-validation.yml
+
+permissions:
+  contents: read
+
+jobs:
+  compose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify Compose interpolation and schema without starting services
+        env:
+          GOREE_CHANGELOGS_DATA_DIR: /tmp/goreecloud-changelogs-compose-ci
+          GOREE_CHANGELOGS_PUBLIC_ORIGIN: https://changelogs.example.test
+        run: docker compose config --quiet
+      - name: Build development image (do not launch server)
+        run: docker build -t goreecloud-changelogs:compose-ci .
+      - name: Verify non-root CLI entrypoint
+        run: docker run --rm --read-only --user 10001:10001 --cap-drop=ALL --security-opt=no-new-privileges goreecloud-changelogs:compose-ci --help
+      - name: Isolated loopback hosted-server smoke (synthetic account only)
+        env:
+          GOREE_CHANGELOGS_DATA_DIR: /tmp/goreecloud-changelogs-compose-ci
+          GOREE_CHANGELOGS_PUBLIC_ORIGIN: https://changelogs.example.test
+        run: |
+          sudo install -d -m 0700 -o 10001 -g 10001 "$GOREE_CHANGELOGS_DATA_DIR"
+          docker compose run -T --rm --no-deps --entrypoint python changelogs -c 'from goreecloud_changelogs.hosted_auth import AuthStore; from goreecloud_changelogs.hosted_server import data_paths; from goreecloud_changelogs.store import Store; db, auth = data_paths("/data"); AuthStore(auth, initialize=True).bootstrap("ci_admin", "synthetic-test-passphrase-not-real"); Store(db)'
+          docker compose run -T --rm --no-deps changelogs host doctor --data-dir /data
+          docker compose up -d --no-build
+          for attempt in 1 2 3 4 5 6 7 8 9 10; do
+            code="$(curl --noproxy '*' --silent --max-time 2 --output /dev/null --write-out '%{http_code}' --header 'Host: changelogs.example.test' http://127.0.0.1:8876/v1/me || true)"
+            if [ "$code" = "401" ]; then break; fi
+            sleep 1
+          done
+          test "$code" = "401"
+          wrong_host="$(curl --noproxy '*' --silent --max-time 2 --output /dev/null --write-out '%{http_code}' --header 'Host: wrong.example.test' http://127.0.0.1:8876/v1/me)"
+          test "$wrong_host" = "421"
+          ss -H -lnt '( sport = :8876 )' | grep -F '127.0.0.1:8876'
+      - name: Stop synthetic hosted server (always)
+        if: always()
+        env:
+          GOREE_CHANGELOGS_DATA_DIR: /tmp/goreecloud-changelogs-compose-ci
+          GOREE_CHANGELOGS_PUBLIC_ORIGIN: https://changelogs.example.test
+        run: docker compose down --remove-orphans
